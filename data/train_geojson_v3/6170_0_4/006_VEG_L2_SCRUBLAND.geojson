@@ -1,0 +1,4 @@
+{"name":"006_VEG_L2_SCRUBLAND","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0,0],[0.00915,0],[0.00915,-0.009042],[0,-0.009042],[0,0]]]},"properties":{"ID":"7b519c45-998e-46c9-9fe1-9c67843be77c","ACAD_LAYER":"006_VEG_L2_SCRUBLAND","TILE_NAME":"6170_0_4","SUPERCLASS":"VEGETATION","LABEL":"SCRUBLAND"}}
+]}

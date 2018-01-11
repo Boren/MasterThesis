@@ -1,0 +1,4 @@
+{"name":"Missing","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.009155699999999,-0.009042299999999],[0,-0.009042299999999],[0,0],[0.009155699999999,0],[0.009155699999999,-0.009042299999999]]]},"properties":{"autocad_la":"Grid_6100","fme_basena":"6100_2_3"}}
+]}

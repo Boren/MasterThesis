@@ -1,0 +1,4 @@
+{"name":"003_VH_L5_SMALL_VEHICLE","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.006768,-0.003806],[0.006777,-0.003797],[0.006793,-0.003812],[0.006785,-0.00382],[0.006768,-0.003806]]]},"properties":{"ID":"af50d2ae-15e2-44a9-a801-ee67ef7ab0cc","ACAD_LAYER":"003_VH_L5_SMALL_VEHICLE","TILE_NAME":"6060_2_3","SUPERCLASS":"MAN-MADE VEHICLES","LABEL":"SMALL_VEHICLE"}}
+]}
