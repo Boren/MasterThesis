@@ -1,15 +1,26 @@
+import csv
 import os
+import sys
 
+import cv2
 import matplotlib.pyplot as plt
 import tifffile
 import numpy as np
 import pandas as pd
+import webcolors
+
+import shapely.wkt
+import shapely.affinity
+
+csv.field_size_limit(sys.maxsize)
 
 LABEL_TO_CLASS = {
     'LARGE_BUILDING': 1,
     'RESIDENTIAL_BUILDING': 1,
     'NON_RESIDENTIAL_BUILDING': 1,
+    'EXTRACTION_MINE': 1,
     'MISC_SMALL_STRUCTURE': 2,
+    'MISC_SMALL_MANMADE_STRUCTURE': 2,
     'GOOD_ROADS': 3,
     'POOR_DIRT_CART_TRACK': 4,
     'FOOTPATH_TRAIL': 4,
@@ -19,6 +30,8 @@ LABEL_TO_CLASS = {
     'STANDALONE_TREES': 5,
     'CONTOUR_PLOUGHING_CROPLAND': 6,
     'ROW_CROP': 6,
+    'FARM_ANIMALS_IN_FIELD': 6,
+    'DEMARCATED_NON_CROP_FIELD': 6,
     'WATERWAY': 7,
     'STANDING_WATER': 8,
     'LARGE_VEHICLE': 9,
@@ -69,16 +82,13 @@ ZORDER = {
 
 
 def scale_image_percentile(matrix):
-    """Fixes the pixel value range to 2%-98% original distribution of values"""
-    orig_shape = matrix.shape
-    matrix = np.reshape(matrix, [matrix.shape[0] * matrix.shape[1], 3]).astype(float)
-
+    w, h, d = matrix.shape
+    matrix = np.reshape(matrix, [w * h, d]).astype(np.float64)
     # Get 2nd and 98th percentile
     mins = np.percentile(matrix, 1, axis=0)
     maxs = np.percentile(matrix, 99, axis=0) - mins
-
     matrix = (matrix - mins[None, :]) / maxs[None, :]
-    matrix = np.reshape(matrix, orig_shape)
+    matrix = np.reshape(matrix, [w, h, d])
     matrix = matrix.clip(0, 1)
     return matrix
 
@@ -88,9 +98,8 @@ class Generator:
         self.data_path = data_path
         self.augment = augment
 
-        self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'),
-                                      names=['image_id', 'x_max', 'y_min'], skiprows=1)
-        self.all_image_ids = self.grid_sizes.image_id.unique()
+        # TODO: Pre-fetch image sizes
+        self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
         self.training_image_ids = [f for f in os.listdir(os.path.join(self.data_path, "train_geojson_v3"))
                                    if os.path.isdir(os.path.join(os.path.join(self.data_path, "train_geojson_v3"), f))]
 
@@ -109,38 +118,65 @@ class Generator:
         else:
             raise Exception("Only 3-band is implemented")
 
-    def save_image(self, image_number: str, filename: str, overlay: bool = False, band: int = 3) -> None:
+    def save_image(self, image_number: str, filename: str, band: int = 3) -> None:
         """
         Saves a image number from specified band and saves it to filename
         Overwrites existing files without warning
         """
         image_data = self.read_image(image_number, band)
-
-        if overlay:
-            overlay_data = self.get_overlay(image_number)
-            # TODO: Add overlay to image_data
-
         plt.imsave(filename, image_data)
-
-    def get_overlay(self, image_number: str):
-        return self.get_ground_truth(image_number)
 
     def save_overlay(self, image_number: str, filename: str) -> None:
         """
         Saves a image number from specified band and saves it to filename
         Overwrites existing files without warning
         """
-        overlay_data = self.get_overlay(image_number)
-        plt.imsave(filename, overlay_data)
+        overlay_data = self.get_ground_truth_polys(image_number)
+        train_mask = self.mask_for_polygons(overlay_data, image_number)
+        plt.imsave(filename, train_mask)
 
-    def get_ground_truth(self, image_number: str):
-        folder = os.path.join(self.data_path, "train_geojson_v3", f'{image_number}')
-        files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and not f.startswith("Grid")]
-        print(files)
-        return None
+    def scale_coords(self, img_size, image_number: str):
+        """Scale the coordinates of a polygon into the image coordinates for a grid cell"""
+        x_max, y_min = self.grid_sizes.loc[image_number][['Xmax', 'Ymin']]
+        h, w = img_size
+        w_ = w * (w / (w + 1))
+        h_ = h * (h / (h + 1))
+        return w_ / x_max, h_ / y_min
+
+    def get_ground_truth_polys(self, image_number: str):
+        train_polygons = dict()
+        for _im_id, _poly_type, _poly in csv.reader(open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
+            if _im_id == image_number:
+                train_polygons[_poly_type] = shapely.wkt.loads(_poly)
+
+        x_scale, y_scale = self.scale_coords(self.read_image(image_number).shape[:2], image_number)
+
+        train_polygons_scaled = dict()
+        for key, train_polygon in train_polygons.items():
+            train_polygons_scaled[key] = shapely.affinity.scale(train_polygon, xfact=x_scale, yfact=y_scale,
+                                                                origin=(0, 0, 0))
+
+        return train_polygons_scaled
+
+    def mask_for_polygons(self, polygons, image_number: str):
+        """
+        Create a color mask of classes with the same size as original image
+        """
+        w, h = self.read_image(image_number).shape[:2]
+
+        img_mask = np.full((w, h, 3), 255, np.uint8)
+
+        # Sort polygons by Z-order
+        for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
+            exteriors = [np.array(poly.exterior.coords.round().astype(np.int32)) for poly in polygons[str(cls)]]
+            cv2.fillPoly(img_mask, exteriors, webcolors.hex_to_rgb(COLOR_MAPPING[int(cls)]))
+
+        return img_mask
 
 
-generator = Generator()
-generator.save_image("6010_1_2", "6010_1_2.png", overlay=True)
-generator.save_overlay("6010_1_2", "6010_1_2_overlay.png")
-generator.get_ground_truth("6010_1_2")
+if __name__ == "__main__":
+    generator = Generator()
+
+    for training_image in os.listdir("data/train_geojson_v3"):
+        generator.save_image(training_image, f"images/{training_image}.png")
+        generator.save_overlay(training_image, f"images/{training_image}_overlay.png")
