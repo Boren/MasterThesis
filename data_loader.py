@@ -11,6 +11,7 @@ import webcolors
 
 import shapely.wkt
 import shapely.affinity
+from tqdm import tqdm
 
 csv.field_size_limit(sys.maxsize)
 
@@ -168,8 +169,11 @@ class Generator:
 
         # Sort polygons by Z-order
         for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
-            exteriors = [np.array(poly.exterior.coords.round().astype(np.int32)) for poly in polygons[str(cls)]]
+            exteriors = [np.array(poly.exterior.coords).round().astype(np.int32) for poly in polygons[str(cls)]]
+            interiors = [np.array(pi.coords).round().astype(np.int32)
+                         for poly in polygons[str(cls)] for pi in poly.interiors]
             cv2.fillPoly(img_mask, exteriors, webcolors.hex_to_rgb(COLOR_MAPPING[int(cls)]))
+            cv2.fillPoly(img_mask, interiors, (255, 255, 255))
 
         return img_mask
 
@@ -177,6 +181,6 @@ class Generator:
 if __name__ == "__main__":
     generator = Generator()
 
-    for training_image in os.listdir("data/train_geojson_v3"):
+    for training_image in tqdm(os.listdir("data/train_geojson_v3"), desc="Generating images", unit="img"):
         generator.save_image(training_image, f"images/{training_image}.png")
         generator.save_overlay(training_image, f"images/{training_image}_overlay.png")
