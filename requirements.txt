@@ -1,0 +1,10 @@
+numpy
+matplotlib
+opencv-python
+pandas
+requests
+shapely
+tensorflow
+tifffile
+tqdm
+webcolors
