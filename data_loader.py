@@ -182,21 +182,27 @@ class Generator:
         else:
             raise Exception("Only 3-band is implemented")
 
-    def save_image(self, image_number: str, filename: str, band: int = 3) -> None:
+    def save_image(self, image_number: str, filename: str, band: int = 3, view: bool = False) -> None:
         """
         Saves a image number from specified band and saves it to filename
         Overwrites existing files without warning
         """
         image_data = self.read_image(image_number, band)
-        plt.imsave(filename, image_data)
+        if view:
+            plt.imshow(image_data)
+        else:
+            plt.imsave(filename, image_data)
 
-    def save_overlay(self, image_number: str, filename: str) -> None:
+    def save_overlay(self, image_number: str, filename: str, view: bool = False) -> None:
         """
         Saves a image number from specified band and saves it to filename
         Overwrites existing files without warning
         """
         train_mask = self.mask_for_polygons(image_number)
-        plt.imsave(filename, train_mask)
+        if view:
+            plt.imshow(train_mask)
+        else:
+            plt.imsave(filename, train_mask)
 
     def scale_coords(self, img_size: Tuple[int, int], image_number: str) -> Tuple[float, float]:
         """
@@ -278,7 +284,3 @@ class Generator:
 if __name__ == "__main__":
     generator = Generator()
     x_train, y_train = generator.next()
-
-    # for training_image in tqdm(os.listdir("data/train_geojson_v3"), desc="Generating images", unit="img"):
-    #    generator.save_image(training_image, f"images/{training_image}.png")
-    #    generator.save_overlay(training_image, f"images/{training_image}_overlay.png")
