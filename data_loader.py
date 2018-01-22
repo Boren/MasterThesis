@@ -1,7 +1,6 @@
 import csv
 import os
 import random
-import sys
 from typing import Tuple, Dict
 
 import cv2
@@ -14,7 +13,7 @@ import tifffile
 import webcolors
 from shapely.geometry import MultiPolygon
 
-csv.field_size_limit(sys.maxsize)
+csv.field_size_limit(2**24)
 
 LABEL_TO_CLASS = {
     'LARGE_BUILDING': 1,
@@ -105,6 +104,7 @@ class Generator:
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
+        self.cache = dict()
 
         # TODO: Pre-fetch image sizes
         self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
@@ -175,9 +175,13 @@ class Generator:
         Reads a image number from specified band and stores the image in a numpy array
         """
         if band == 3:
+            if f"{image_number}_{band}" in self.cache:
+                return self.cache[f"{image_number}_{band}"]
+
             filename = os.path.join(self.data_path, "three_band", f'{image_number}.tif')
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
             image_data = scale_image_percentile(raw_data)
+            self.cache[f"{image_number}_{band}"] = image_data
             return image_data
         else:
             raise Exception("Only 3-band is implemented")
