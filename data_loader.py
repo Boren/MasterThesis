@@ -142,27 +142,25 @@ class Generator:
 
             # Augment
             if self.augment:
+                # Rotate either 0, 90, 180 or 270 degrees
                 num_rotations = np.random.randint(4)
-                flip_vertical = np.random.choice([True, False])
-                flip_horizontal = np.random.choice([True, False])
-
                 x_train_temp = np.rot90(x_train_temp, num_rotations)
                 y_train_temp = np.rot90(y_train_temp, num_rotations)
 
-                if flip_horizontal:
+                # Flip horizontal
+                if np.random.choice([True, False]):
                     x_train_temp = np.fliplr(x_train_temp)
                     y_train_temp = np.fliplr(y_train_temp)
 
-                if flip_vertical:
+                # Flip vertical
+                if np.random.choice([True, False]):
                     x_train_temp = np.flipud(x_train_temp)
                     y_train_temp = np.flipud(y_train_temp)
-
-                print(f"{num_rotations} Vert {flip_vertical} Hori {flip_horizontal}")
 
             x_train_batch.append(x_train_temp)
             y_train_batch.append(y_train_temp)
 
-        return x_train_batch, y_train_batch
+        return np.array(x_train_batch), np.array(y_train_batch)
 
     def get_grid_size(self, image_number: str) -> Tuple[float, float]:
         """
