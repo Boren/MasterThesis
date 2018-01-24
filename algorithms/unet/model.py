@@ -3,14 +3,15 @@ from keras.layers import MaxPooling2D, Conv2D, UpSampling2D, concatenate
 from keras.optimizers import Adam
 
 
-def unet(input_size: int, num_classes: int):
+def unet(input_size: int, num_classes: int, channels: int = 3) -> Model:
     """
     U-Net: Convolutional Networks for Biomedical Image Segmentation
-    http://arxiv.org/abs/1505.04597
+    https://arxiv.org/abs/1505.04597
+    https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/
 
     TODO: Consider adding dropout
     """
-    inputs = Input((input_size, input_size, 3))
+    inputs = Input((input_size, input_size, channels))
     conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
     conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)

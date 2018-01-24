@@ -105,6 +105,7 @@ class Generator:
         self.batch_size = batch_size
         self.patch_size = patch_size
         self.cache = dict()
+        self.polycache = dict()
 
         # TODO: Pre-fetch image sizes
         self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
@@ -125,9 +126,12 @@ class Generator:
 
         for training_image_id in training_image_ids:
             x_train_temp = self.read_image(training_image_id)
-            y_train_temp = self.get_ground_truth_array(training_image_id)
+            y_train_temp = np.zeros((x_train_temp.shape[0], x_train_temp.shape[1], 10))
+            for z in range(1, 11):
+                print(z)
+                y_train_temp[:, :, z-1] = self.get_ground_truth_array(training_image_id, z)
 
-            if x_train_temp.shape[:2] != y_train_temp.shape:
+            if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth")
 
             # Crop to patch size
@@ -174,7 +178,9 @@ class Generator:
         """
         if band == 3:
             if f"{image_number}_{band}" in self.cache:
+                print("Cache hit!")
                 return self.cache[f"{image_number}_{band}"]
+            print("Cache miss!")
 
             filename = os.path.join(self.data_path, "three_band", f'{image_number}.tif')
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
@@ -221,6 +227,11 @@ class Generator:
         Get a list of polygons sorted by class for the selected image.
         Scaled to match image.
         """
+        if f"{image_number}" in self.polycache:
+            print("Poly cache hit!")
+            return self.polycache[f"{image_number}"]
+        print("Poly cache miss!")
+
         train_polygons = dict()
         for _im_id, _poly_type, _poly in csv.reader(open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
             if _im_id == image_number:
@@ -233,9 +244,11 @@ class Generator:
             train_polygons_scaled[key] = shapely.affinity.scale(train_polygon, xfact=x_scale, yfact=y_scale,
                                                                 origin=(0, 0, 0))
 
+        self.polycache[f"{image_number}"] = train_polygons_scaled
+
         return train_polygons_scaled
 
-    def get_ground_truth_array(self, image_number: str):
+    def get_ground_truth_array(self, image_number: str, class_number: int):
         """
         Creates a array containing class for each pixel
         """
@@ -245,18 +258,16 @@ class Generator:
         # White background
         img_mask = np.full((w, h), 0, np.uint8)
 
-        # Sort polygons by Z-order
-        for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
-            exteriors = [np.array(poly.exterior.coords).round().astype(np.int32)
-                         for poly in polygons[str(cls)]]
+        exteriors = [np.array(poly.exterior.coords).round().astype(np.int32)
+                     for poly in polygons[str(class_number)]]
 
-            cv2.fillPoly(img_mask, exteriors, int(cls))
+        cv2.fillPoly(img_mask, exteriors, int(class_number))
 
-            # Some polygons have regions inside them which need to be excluded
-            interiors = [np.array(pi.coords).round().astype(np.int32)
-                         for poly in polygons[str(cls)] for pi in poly.interiors]
+        # Some polygons have regions inside them which need to be excluded
+        interiors = [np.array(pi.coords).round().astype(np.int32)
+                     for poly in polygons[str(class_number)] for pi in poly.interiors]
 
-            cv2.fillPoly(img_mask, interiors, 0)
+        cv2.fillPoly(img_mask, interiors, 0)
 
         return img_mask
 

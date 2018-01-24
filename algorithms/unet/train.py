@@ -23,5 +23,6 @@ if __name__ == "__main__":
     for i in range(epochs):
         train_x, train_y = generator.next()
         print(f"Input data shape: {train_x.shape}")
-        model.fit(train_x, train_y, batch_size=batch_size, epochs=1, verbose=1, shuffle=True,
+        print(f"Input data shape: {train_y.shape}")
+        model.fit(train_x, train_y, batch_size=1, epochs=1, verbose=1, shuffle=True,
                   callbacks=[model_checkpoint], validation_data=(val_x, val_y))
