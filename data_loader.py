@@ -112,15 +112,19 @@ class Generator:
         self.training_image_ids = [f for f in os.listdir(os.path.join(self.data_path, "train_geojson_v3"))
                                    if os.path.isdir(os.path.join(os.path.join(self.data_path, "train_geojson_v3"), f))]
 
-    def next(self) -> Tuple[any, any]:
+    def next(self, amount: int = None) -> Tuple[any, any]:
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
         x_train is a numpy array of shape [w, h, c]
         y_train is a numpy array of shape [w, h]
         """
+
+        if amount is None:
+            amount = self.batch_size
+
         # Extract a random subset of images from training pool (batch size)
-        training_image_ids = random.sample(self.training_image_ids, self.batch_size)
+        training_image_ids = random.sample(self.training_image_ids, amount)
         x_train_batch = []
         y_train_batch = []
 
@@ -128,7 +132,7 @@ class Generator:
             x_train_temp = self.read_image(training_image_id)
             y_train_temp = np.zeros((x_train_temp.shape[0], x_train_temp.shape[1], 10))
             for z in range(1, 11):
-                print(z)
+                # print(z)
                 y_train_temp[:, :, z-1] = self.get_ground_truth_array(training_image_id, z)
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
@@ -178,9 +182,9 @@ class Generator:
         """
         if band == 3:
             if f"{image_number}_{band}" in self.cache:
-                print("Cache hit!")
+                # print("Cache hit!")
                 return self.cache[f"{image_number}_{band}"]
-            print("Cache miss!")
+            # print("Cache miss!")
 
             filename = os.path.join(self.data_path, "three_band", f'{image_number}.tif')
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
@@ -228,9 +232,9 @@ class Generator:
         Scaled to match image.
         """
         if f"{image_number}" in self.polycache:
-            print("Poly cache hit!")
+            # print("Poly cache hit!")
             return self.polycache[f"{image_number}"]
-        print("Poly cache miss!")
+        # print("Poly cache miss!")
 
         train_polygons = dict()
         for _im_id, _poly_type, _poly in csv.reader(open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
@@ -261,7 +265,7 @@ class Generator:
         exteriors = [np.array(poly.exterior.coords).round().astype(np.int32)
                      for poly in polygons[str(class_number)]]
 
-        cv2.fillPoly(img_mask, exteriors, int(class_number))
+        cv2.fillPoly(img_mask, exteriors, 1)
 
         # Some polygons have regions inside them which need to be excluded
         interiors = [np.array(pi.coords).round().astype(np.int32)
