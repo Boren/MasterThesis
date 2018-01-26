@@ -265,3 +265,4 @@ fabric.properties
 *.png
 .idea
 images/
+weights/

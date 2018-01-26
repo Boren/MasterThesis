@@ -104,13 +104,44 @@ class Generator:
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
-        self.cache = dict()
-        self.polycache = dict()
 
-        # TODO: Pre-fetch image sizes
         self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
         self.training_image_ids = [f for f in os.listdir(os.path.join(self.data_path, "train_geojson_v3"))
                                    if os.path.isdir(os.path.join(os.path.join(self.data_path, "train_geojson_v3"), f))]
+
+        self.preprocess()
+
+    def preprocess(self):
+        cache_folder = os.path.join(self.data_path, "cache")
+        if not os.path.isdir(cache_folder):
+            os.makedirs(cache_folder)
+
+        for image_id in self.training_image_ids:
+            cache_path = os.path.join(cache_folder, f"train_{image_id}")
+            img_width = None
+            img_height = None
+
+            if not os.path.isfile(cache_path + "_x.npy"):
+                print(f"Caching image {image_id}")
+                temp_data = self.read_image(image_id)
+                img_width = temp_data.shape[0]
+                img_height = temp_data.shape[1]
+                np.save(cache_path + "_x", temp_data)
+
+            if not os.path.isfile(cache_path + "_y.npy"):
+                print(f"Caching ground truth {image_id}")
+
+                # In case image is not loaded we have to load to get dimensions
+                if img_width is None:
+                    temp_image = self.read_image(image_id)
+                    img_width = temp_image.shape[0]
+                    img_height = temp_image.shape[1]
+
+                temp_data = np.zeros((img_width, img_height, 10))
+                polygons = self.get_ground_truth_polys(image_id)
+                for z in range(10):
+                    temp_data[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
+                np.save(cache_path + "_y", temp_data)
 
     def next(self, amount: int = None) -> Tuple[any, any]:
         """
@@ -124,16 +155,13 @@ class Generator:
             amount = self.batch_size
 
         # Extract a random subset of images from training pool (batch size)
-        training_image_ids = random.sample(self.training_image_ids, amount)
+        training_image_ids = random.choices(self.training_image_ids, k=amount)
         x_train_batch = []
         y_train_batch = []
 
         for training_image_id in training_image_ids:
-            x_train_temp = self.read_image(training_image_id)
-            y_train_temp = np.zeros((x_train_temp.shape[0], x_train_temp.shape[1], 10))
-            for z in range(1, 11):
-                # print(z)
-                y_train_temp[:, :, z-1] = self.get_ground_truth_array(training_image_id, z)
+            x_train_temp = np.load(os.path.join(self.data_path, "cache", f"train_{training_image_id}_x.npy"))
+            y_train_temp = np.load(os.path.join(self.data_path, "cache", f"train_{training_image_id}_y.npy"))
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth")
@@ -181,15 +209,9 @@ class Generator:
         Reads a image number from specified band and stores the image in a numpy array
         """
         if band == 3:
-            if f"{image_number}_{band}" in self.cache:
-                # print("Cache hit!")
-                return self.cache[f"{image_number}_{band}"]
-            # print("Cache miss!")
-
             filename = os.path.join(self.data_path, "three_band", f'{image_number}.tif')
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
             image_data = scale_image_percentile(raw_data)
-            self.cache[f"{image_number}_{band}"] = image_data
             return image_data
         else:
             raise Exception("Only 3-band is implemented")
@@ -231,11 +253,6 @@ class Generator:
         Get a list of polygons sorted by class for the selected image.
         Scaled to match image.
         """
-        if f"{image_number}" in self.polycache:
-            # print("Poly cache hit!")
-            return self.polycache[f"{image_number}"]
-        # print("Poly cache miss!")
-
         train_polygons = dict()
         for _im_id, _poly_type, _poly in csv.reader(open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
             if _im_id == image_number:
@@ -248,16 +265,13 @@ class Generator:
             train_polygons_scaled[key] = shapely.affinity.scale(train_polygon, xfact=x_scale, yfact=y_scale,
                                                                 origin=(0, 0, 0))
 
-        self.polycache[f"{image_number}"] = train_polygons_scaled
-
         return train_polygons_scaled
 
-    def get_ground_truth_array(self, image_number: str, class_number: int):
+    def get_ground_truth_array(self, polygons, class_number: int, image_size: Tuple[int, int]):
         """
         Creates a array containing class for each pixel
         """
-        w, h = self.read_image(image_number).shape[:2]
-        polygons = self.get_ground_truth_polys(image_number)
+        w, h = image_size
 
         # White background
         img_mask = np.full((w, h), 0, np.uint8)
