@@ -10,25 +10,31 @@ from data_loader import Generator, CLASS_TO_LABEL
 if __name__ == "__main__":
     num_classes = 10
     input_size = 160
-    epochs = 1
-    batch_size = 3
+    epochs = 5
+    batch_size = 5
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
     model = unet(input_size=input_size, num_classes=num_classes)
-    model.summary()
+
+    if os.path.isfile('weights/unet.hdf5'):
+        load = input("Saved weights found. Load? (y/n)")
+        if load == "y":
+            print("Loading saved weights")
+            model.load_weights('weights/unet.hdf5')
+    # model.summary()
     if not os.path.exists('weights'):
         os.makedirs('weights')
     model_checkpoint = ModelCheckpoint('weights/unet.hdf5', monitor='loss', save_best_only=True)
 
-    val_x, val_y = generator.next()
+    val_x, val_y = generator.next(amount=10)
 
     print("Starting training")
 
     for i in range(epochs):
         train_x, train_y = generator.next()
-        print(f"Training data shape: {train_x.shape}")
-        print(f"Validation data shape: {train_y.shape}")
+        #print(f"Training data shape: {train_x.shape}")
+        #print(f"Validation data shape: {train_y.shape}")
         model.fit(train_x, train_y, batch_size=1, epochs=1, verbose=1, shuffle=True,
                   callbacks=[model_checkpoint], validation_data=(val_x, val_y))
 
@@ -52,6 +58,6 @@ if __name__ == "__main__":
                 ax2.set_title(f'Ground Truth ({CLASS_TO_LABEL[cls+1]})')
                 ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
                 ax3.set_title(f'Prediction ({CLASS_TO_LABEL[cls+1]})')
-                ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
+                ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'), interpolation='nearest', vmin=0, vmax=1)
                 plt.show()
-                input("Press Enter to continue...")
+                #input("Press Enter to continue...")

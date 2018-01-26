@@ -310,8 +310,3 @@ class Generator:
             cv2.fillPoly(img_mask, interiors, (255, 255, 255))
 
         return img_mask
-
-
-if __name__ == "__main__":
-    generator = Generator()
-    x_train, y_train = generator.next()
