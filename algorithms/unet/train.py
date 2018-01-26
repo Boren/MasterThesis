@@ -33,8 +33,8 @@ if __name__ == "__main__":
 
     for i in range(epochs):
         train_x, train_y = generator.next()
-        #print(f"Training data shape: {train_x.shape}")
-        #print(f"Validation data shape: {train_y.shape}")
+        # print(f"Training data shape: {train_x.shape}")
+        # print(f"Validation data shape: {train_y.shape}")
         model.fit(train_x, train_y, batch_size=1, epochs=1, verbose=1, shuffle=True,
                   callbacks=[model_checkpoint], validation_data=(val_x, val_y))
 
@@ -60,4 +60,3 @@ if __name__ == "__main__":
                 ax3.set_title(f'Prediction ({CLASS_TO_LABEL[cls+1]})')
                 ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'), interpolation='nearest', vmin=0, vmax=1)
                 plt.show()
-                #input("Press Enter to continue...")
