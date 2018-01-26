@@ -99,11 +99,16 @@ class Generator:
     Class responsible for generating batches of data to train on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True):
+    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True,
+                 cache_in_memory: bool = False):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
+
+        self.cache_in_memory = cache_in_memory
+        self.cache_x = dict()
+        self.cache_y = dict()
 
         self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
         self.training_image_ids = [f for f in os.listdir(os.path.join(self.data_path, "train_geojson_v3"))
@@ -117,19 +122,19 @@ class Generator:
             os.makedirs(cache_folder)
 
         for image_id in self.training_image_ids:
-            cache_path = os.path.join(cache_folder, f"train_{image_id}")
+            cache_path = os.path.join(cache_folder, "train_{image_id}".format(image_id=image_id))
             img_width = None
             img_height = None
 
             if not os.path.isfile(cache_path + "_x.npy"):
-                print(f"Caching image {image_id}")
-                temp_data = self.read_image(image_id)
-                img_width = temp_data.shape[0]
-                img_height = temp_data.shape[1]
-                np.save(cache_path + "_x", temp_data)
+                print("Caching image {image_id}".format(image_id=image_id))
+                temp_data_x = self.read_image(image_id)
+                img_width = temp_data_x.shape[0]
+                img_height = temp_data_x.shape[1]
+                np.save(cache_path + "_x", temp_data_x)
 
             if not os.path.isfile(cache_path + "_y.npy"):
-                print(f"Caching ground truth {image_id}")
+                print("Caching ground truth {image_id}".format(image_id=image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -137,11 +142,15 @@ class Generator:
                     img_width = temp_image.shape[0]
                     img_height = temp_image.shape[1]
 
-                temp_data = np.zeros((img_width, img_height, 10))
+                temp_data_y = np.zeros((img_width, img_height, 10))
                 polygons = self.get_ground_truth_polys(image_id)
                 for z in range(10):
-                    temp_data[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
-                np.save(cache_path + "_y", temp_data)
+                    temp_data_y[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
+                np.save(cache_path + "_y", temp_data_y)
+
+            if self.cache_in_memory:
+                self.cache_x[image_id] = temp_data_x
+                self.cache_y[image_id] = temp_data_y
 
     def next(self, amount: int = None) -> Tuple[any, any]:
         """
@@ -159,9 +168,15 @@ class Generator:
         x_train_batch = []
         y_train_batch = []
 
-        for training_image_id in training_image_ids:
-            x_train_temp = np.load(os.path.join(self.data_path, "cache", f"train_{training_image_id}_x.npy"))
-            y_train_temp = np.load(os.path.join(self.data_path, "cache", f"train_{training_image_id}_y.npy"))
+        for image_id in training_image_ids:
+            if self.cache_in_memory:
+                x_train_temp = self.cache_x[image_id]
+                y_train_temp = self.cache_y[image_id]
+            else:
+                x_train_temp = np.load(os.path.join(self.data_path, "cache",
+                                                    "train_{image_id}_x.npy".format(image_id=image_id)))
+                y_train_temp = np.load(os.path.join(self.data_path, "cache",
+                                                    "train_{image_id}_y.npy".format(image_id=image_id)))
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth")
@@ -204,12 +219,12 @@ class Generator:
         """
         return self.grid_sizes[image_number]
 
-    def read_image(self, image_number: str, band: int = 3):
+    def read_image(self, image_id: str, band: int = 3):
         """
         Reads a image number from specified band and stores the image in a numpy array
         """
         if band == 3:
-            filename = os.path.join(self.data_path, "three_band", f'{image_number}.tif')
+            filename = os.path.join(self.data_path, "three_band", '{image_id}.tif'.format(image_id=image_id))
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
             image_data = scale_image_percentile(raw_data)
             return image_data

@@ -10,8 +10,8 @@ from data_loader import Generator, CLASS_TO_LABEL
 if __name__ == "__main__":
     num_classes = 10
     input_size = 160
-    epochs = 5
-    batch_size = 5
+    epochs = 1000
+    batch_size = 1
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
@@ -55,8 +55,9 @@ if __name__ == "__main__":
                 ax2 = plt.subplot(132)
                 ax3 = plt.subplot(133)
                 ax1.imshow(test_x[patchnum, :, :, :], cmap=plt.get_cmap('gist_ncar'))
-                ax2.set_title(f'Ground Truth ({CLASS_TO_LABEL[cls+1]})')
+                ax2.set_title('Ground Truth ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
                 ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
-                ax3.set_title(f'Prediction ({CLASS_TO_LABEL[cls+1]})')
-                ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'), interpolation='nearest', vmin=0, vmax=1)
+                ax3.set_title(f'Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
+                ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'),
+                           interpolation='nearest', vmin=0, vmax=1)
                 plt.show()
