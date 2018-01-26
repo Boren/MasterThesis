@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 ax1.imshow(test_x[patchnum, :, :, :], cmap=plt.get_cmap('gist_ncar'))
                 ax2.set_title('Ground Truth ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
                 ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
-                ax3.set_title(f'Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
+                ax3.set_title('Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
                 ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'),
                            interpolation='nearest', vmin=0, vmax=1)
                 plt.show()

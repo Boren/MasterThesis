@@ -117,6 +117,9 @@ class Generator:
         self.preprocess()
 
     def preprocess(self):
+        """
+        Does required preprocessing to get images ready for training. Also caches the results for future use.
+        """
         cache_folder = os.path.join(self.data_path, "cache")
         if not os.path.isdir(cache_folder):
             os.makedirs(cache_folder)
@@ -152,7 +155,7 @@ class Generator:
                 self.cache_x[image_id] = temp_data_x
                 self.cache_y[image_id] = temp_data_y
 
-    def next(self, amount: int = None) -> Tuple[any, any]:
+    def next(self, amount: int = None):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -164,7 +167,7 @@ class Generator:
             amount = self.batch_size
 
         # Extract a random subset of images from training pool (batch size)
-        training_image_ids = random.choices(self.training_image_ids, k=amount)
+        training_image_ids = [random.choice(self.training_image_ids) for _ in range(amount)]
         x_train_batch = []
         y_train_batch = []
 
