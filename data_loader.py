@@ -216,6 +216,10 @@ class Generator:
 
         return np.array(x_train_batch), np.array(y_train_batch)
 
+    def generator(self):
+        while 1:
+            yield self.next(amount=1)
+
     def get_grid_size(self, image_number: str) -> Tuple[float, float]:
         """
         Returns the grid size of a specific image. Needed to scale some coords

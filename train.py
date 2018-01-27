@@ -12,7 +12,7 @@ if __name__ == "__main__":
     num_classes = 10
     input_size = 160
     epochs = 1000
-    batch_size = 1
+    batch_size = 5
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
@@ -31,16 +31,13 @@ if __name__ == "__main__":
     # Setup tensorboard model
     tbCallBack = TensorBoard(log_dir='tensorboard_log/', histogram_freq=1,
                              write_graph=True, write_images=True)
-    tbCallBack.set_model(model)
 
-    val_x, val_y = generator.next(amount=1)
+    val_x, val_y = generator.next(amount=5)
 
     print("Starting training")
 
-    for i in range(epochs):
-        train_x, train_y = generator.next()
-        model.fit(train_x, train_y, batch_size=1, epochs=1, verbose=1, shuffle=True,
-                  callbacks=[model_checkpoint], validation_data=(val_x, val_y))
+    model.fit_generator(generator.generator(), steps_per_epoch=batch_size, epochs=epochs, verbose=1,
+                        callbacks=[model_checkpoint, tbCallBack], validation_data=(val_x, val_y))
 
     print("Doing some sample predicitons")
 
