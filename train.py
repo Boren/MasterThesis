@@ -1,6 +1,6 @@
 import os
 
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, TensorBoard
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -27,6 +27,11 @@ if __name__ == "__main__":
     if not os.path.exists('weights'):
         os.makedirs('weights')
     model_checkpoint = ModelCheckpoint('weights/unet.hdf5', monitor='loss', save_best_only=True)
+
+    # Setup tensorboard model
+    tbCallBack = TensorBoard(log_dir='tensorboard_log/', histogram_freq=1,
+                             write_graph=True, write_images=True)
+    tbCallBack.set_model(model)
 
     val_x, val_y = generator.next(amount=1)
 

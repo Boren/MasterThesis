@@ -267,3 +267,4 @@ fabric.properties
 images/
 weights/
 data/cache/
+tensorboard_log/
