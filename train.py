@@ -4,10 +4,11 @@ from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 import numpy as np
 
-from algorithms.unet.model import unet
+from models.unet import unet
 from data_loader import Generator, CLASS_TO_LABEL
 
 if __name__ == "__main__":
+    # TODO: Load arguments from command line
     num_classes = 10
     input_size = 160
     epochs = 1000
@@ -22,19 +23,17 @@ if __name__ == "__main__":
         if load == "y":
             print("Loading saved weights")
             model.load_weights('weights/unet.hdf5')
-    # model.summary()
+    model.summary()
     if not os.path.exists('weights'):
         os.makedirs('weights')
     model_checkpoint = ModelCheckpoint('weights/unet.hdf5', monitor='loss', save_best_only=True)
 
-    val_x, val_y = generator.next(amount=10)
+    val_x, val_y = generator.next(amount=1)
 
     print("Starting training")
 
     for i in range(epochs):
         train_x, train_y = generator.next()
-        # print(f"Training data shape: {train_x.shape}")
-        # print(f"Validation data shape: {train_y.shape}")
         model.fit(train_x, train_y, batch_size=1, epochs=1, verbose=1, shuffle=True,
                   callbacks=[model_checkpoint], validation_data=(val_x, val_y))
 
@@ -52,11 +51,13 @@ if __name__ == "__main__":
                 plt.figure()
                 ax1 = plt.subplot(131)
                 ax1.set_title('Raw RGB data')
-                ax2 = plt.subplot(132)
-                ax3 = plt.subplot(133)
                 ax1.imshow(test_x[patchnum, :, :, :], cmap=plt.get_cmap('gist_ncar'))
+
+                ax2 = plt.subplot(132)
                 ax2.set_title('Ground Truth ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
                 ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
+
+                ax3 = plt.subplot(133)
                 ax3.set_title('Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls+1]))
                 ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'),
                            interpolation='nearest', vmin=0, vmax=1)

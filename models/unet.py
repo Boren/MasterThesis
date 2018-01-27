@@ -2,6 +2,8 @@ from keras import Model, Input
 from keras.layers import MaxPooling2D, Conv2D, UpSampling2D, concatenate
 from keras.optimizers import Adam
 
+from utils import metrics
+
 
 def unet(input_size: int, num_classes: int, channels: int = 3) -> Model:
     """
@@ -55,5 +57,5 @@ def unet(input_size: int, num_classes: int, channels: int = 3) -> Model:
 
     model = Model(inputs=inputs, outputs=conv10)
     # TODO: Add more metrics for evaluation
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', metrics.mean_iou])
     return model
