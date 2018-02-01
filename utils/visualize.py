@@ -90,6 +90,24 @@ def mask_for_polygons(polygons, width, height):
     return img_mask
 
 
+def mask_for_array(arr):
+    # White background
+    img_mask = np.full((arr.shape[0], arr.shape[1], 3), 255, np.uint8)
+
+    # Sort polygons by Z-order
+    for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
+        mask = np.repeat(arr[:, :, cls-1, np.newaxis], 3, axis=2)
+        mask = mask * webcolors.hex_to_rgb(COLOR_MAPPING[int(cls)])
+        mask = mask.astype('uint8')
+
+        # Create a mask to only copy pixels which are in this class
+        m = np.ma.masked_where(mask > 0, mask).mask
+
+        np.copyto(img_mask, mask, where=m)
+
+    return img_mask
+
+
 def save_image_array(arr, filename: str) -> None:
     """
     Saves a image array to a file

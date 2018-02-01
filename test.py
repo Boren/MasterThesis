@@ -1,7 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
-from utils.visualize import CLASS_TO_LABEL
+from utils.visualize import CLASS_TO_LABEL, mask_for_array
 
 from models.unet import unet
 from data_loader import Generator
@@ -20,22 +20,22 @@ if __name__ == "__main__":
     print("Loading saved weights")
     model.load_weights('weights/unet.hdf5')
 
-    test_amount = 2
-    test_x, test_y = generator.next(amount=test_amount)
+    test_amount = 1
 
-    test_y_result = model.predict(test_x, batch_size=1, verbose=1)
+    test_x, test_y = generator.next(amount=test_amount)
+    test_y_result = model.predict_generator(generator.generator(), steps=test_amount, verbose=1)
 
     # Plot results
     print("Plotting results...")
     for patchnum in range(test_amount):
-        fig = plt.figure()
+        fig = plt.figure(figsize=(2000/96, 5000/96), dpi=96)
         ax1 = plt.subplot(11, 2, 1)
         ax1.set_title('Raw RGB data')
         ax1.imshow(test_x[patchnum, :, :, :], cmap=plt.get_cmap('gist_ncar'))
 
         ax1 = plt.subplot(11, 2, 2)
-        ax1.set_title('Raw RGB data')
-        ax1.imshow(test_x[patchnum, :, :, :], cmap=plt.get_cmap('gist_ncar'))
+        ax1.set_title('Combined ground truth')
+        ax1.imshow(mask_for_array(test_y[patchnum, :, :, :]), cmap=plt.get_cmap('gist_ncar'))
 
         for cls in range(10):
             ax2 = plt.subplot(11, 2, 2 * cls + 3)
