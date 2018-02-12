@@ -10,9 +10,11 @@ if __name__ == "__main__":
     # TODO: Load arguments from command line
     num_classes = 10
     input_size = 160
-    epochs = 1
-    batch_size = 1
-    val_amount = 1
+    epochs = 100
+    batch_size = 50
+    val_amount = 10
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
