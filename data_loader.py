@@ -50,7 +50,7 @@ class Generator:
 
     def preprocess(self):
         """
-        Does required preprocessing to get images ready for training. Also caches the results for future use.
+        Performs required preprocessing to get images ready for training. Also caches the results for future use.
         """
         cache_folder = os.path.join(self.data_path, "cache")
         if not os.path.isdir(cache_folder):

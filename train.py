@@ -1,6 +1,7 @@
 import os
 
 from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.utils import plot_model
 
 from models import fcn, unet
 from data_loader import Generator
@@ -18,17 +19,19 @@ if __name__ == "__main__":
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
-    model = fcn.fcn32(input_size=input_size, num_classes=num_classes)
+    model = unet.unet(input_size=input_size, num_classes=num_classes)
 
-    if os.path.isfile('weights/fcn32.hdf5'):
+    if os.path.isfile('weights/unet.hdf5'):
         load = input("Saved weights found. Load? (y/n)")
         if load == "y":
             print("Loading saved weights")
-            model.load_weights('weights/fcn32.hdf5')
+            model.load_weights('weights/unet.hdf5')
     model.summary()
+    plot_model(model, show_shapes=False, to_file="images/unet_model.png")
+    plot_model(model, show_shapes=True, to_file="images/unet_model_shapes.png")
     if not os.path.exists('weights'):
         os.makedirs('weights')
-    model_checkpoint = ModelCheckpoint('weights/fcn32.hdf5', monitor='loss', save_best_only=True)
+    model_checkpoint = ModelCheckpoint('weights/unet.hdf5', monitor='loss', save_best_only=True)
 
     # Setup tensorboard model
     tbCallBack = TensorBoard(log_dir='tensorboard_log/', histogram_freq=1,

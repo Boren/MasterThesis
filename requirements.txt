@@ -4,6 +4,7 @@ numpy
 matplotlib
 opencv-python
 pandas
+pydot
 requests
 shapely
 tensorflow

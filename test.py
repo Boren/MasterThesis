@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from utils.visualize import CLASS_TO_LABEL, mask_for_array
 
-from models.unet import unet
+from models import unet, fcn
 from data_loader import Generator
 
 if __name__ == "__main__":
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     input_size = 160
 
     generator = Generator(patch_size=input_size)
-    model = unet(input_size=input_size, num_classes=num_classes)
+    model = unet.unet(input_size=input_size, num_classes=num_classes)
 
     # TODO: Dynamic weight loading from argument
     if not os.path.isfile('weights/unet.hdf5'):
