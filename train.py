@@ -2,7 +2,7 @@ import os
 
 from keras.callbacks import ModelCheckpoint, TensorBoard
 
-from models.unet import unet
+from models import fcn, unet
 from data_loader import Generator
 
 
@@ -11,24 +11,24 @@ if __name__ == "__main__":
     num_classes = 10
     input_size = 160
     epochs = 100
-    batch_size = 50
-    val_amount = 10
+    batch_size = 1
+    val_amount = 1
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     generator = Generator(patch_size=input_size, batch_size=batch_size)
 
-    model = unet(input_size=input_size, num_classes=num_classes)
+    model = fcn.fcn32(input_size=input_size, num_classes=num_classes)
 
-    if os.path.isfile('weights/unet.hdf5'):
+    if os.path.isfile('weights/fcn32.hdf5'):
         load = input("Saved weights found. Load? (y/n)")
         if load == "y":
             print("Loading saved weights")
-            model.load_weights('weights/unet.hdf5')
+            model.load_weights('weights/fcn32.hdf5')
     model.summary()
     if not os.path.exists('weights'):
         os.makedirs('weights')
-    model_checkpoint = ModelCheckpoint('weights/unet.hdf5', monitor='loss', save_best_only=True)
+    model_checkpoint = ModelCheckpoint('weights/fcn32.hdf5', monitor='loss', save_best_only=True)
 
     # Setup tensorboard model
     tbCallBack = TensorBoard(log_dir='tensorboard_log/', histogram_freq=1,
