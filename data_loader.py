@@ -94,7 +94,7 @@ class Generator:
         Returns next batch of training images
         Tuple(x_train, y_train)
         x_train is a numpy array of shape [w, h, c]
-        y_train is a numpy array of shape [w, h]
+        y_train is a numpy array of shape [w, h, num_classes]
         """
 
         if amount is None:
@@ -149,6 +149,15 @@ class Generator:
             y_train_batch.append(y_train_temp)
 
         return np.array(x_train_batch), np.array(y_train_batch)
+
+    def get_patch(self, image: str, x: int, y: int, width: int, height: int):
+        x_train = np.load(os.path.join(self.data_path, "cache", "train_{image_id}_x.npy".format(image_id=image)))
+        y_train = np.load(os.path.join(self.data_path, "cache", "train_{image_id}_y.npy".format(image_id=image)))
+
+        x_train = x_train[x:x + width, y:y + height]
+        y_train = y_train[x:x + width, y:y + height]
+
+        return x_train, y_train
 
     def generator(self):
         while 1:

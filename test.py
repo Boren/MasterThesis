@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import matplotlib.pyplot as plt
 from utils.visualize import CLASS_TO_LABEL, mask_for_array
 
@@ -22,8 +23,18 @@ if __name__ == "__main__":
 
     test_amount = 1
 
-    test_x, test_y = generator.next(amount=test_amount)
-    test_y_result = model.predict_generator(generator.generator(), steps=test_amount, verbose=1)
+    #test_x, test_y = generator.next(amount=test_amount)
+    #test_y_result = model.predict_generator(generator.generator(), steps=test_amount, verbose=1)
+
+    # OK test area with buildings, roads etc.
+    test_x_temp, test_y_temp = generator.get_patch(image="6060_2_3",
+                                                   x=811, y=1512,
+                                                   width=160, height=160)
+
+    test_x = np.array([test_x_temp])
+    test_y = np.array([test_y_temp])
+
+    test_y_result = model.predict(test_x, batch_size=1, verbose=1)
 
     # Plot results
     print("Plotting results...")
