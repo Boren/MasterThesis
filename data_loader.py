@@ -111,9 +111,11 @@ class Generator:
                 y_train_temp = self.cache_y[image_id]
             else:
                 x_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "train_{image_id}_x.npy".format(image_id=image_id)))
+                                                    "train_{image_id}_x.npy".format(image_id=image_id)),
+                                       mmap_mode='r')
                 y_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "train_{image_id}_y.npy".format(image_id=image_id)))
+                                                    "train_{image_id}_y.npy".format(image_id=image_id)),
+                                       mmap_mode='r')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth")
