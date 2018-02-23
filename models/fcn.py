@@ -12,7 +12,8 @@ from utils import metrics
 def fcn32(input_size: int, num_classes: int, channels: int = 3, weight_decay=0.) -> Model:
     """
     Fully Convolutional Networks for Semantic Segmentation
-    https://arxiv.org/abs/1411.4038
+
+
     https://github.com/divamgupta/image-segmentation-keras
 
     """
