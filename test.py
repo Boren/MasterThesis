@@ -4,22 +4,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 from utils.visualize import CLASS_TO_LABEL, mask_for_array
 
-from models import unet, fcn
+from models import unet, fcn, tiramisu
 from data_loader import Generator
 
 if __name__ == "__main__":
     num_classes = 10
     input_size = 160
+    algorithm = "tiramisu"
 
     generator = Generator(patch_size=input_size)
-    model = unet.unet(input_size=input_size, num_classes=num_classes)
 
-    # TODO: Dynamic weight loading from argument
-    if not os.path.isfile('weights/unet.hdf5'):
-        print("No weights to load")
+    if algorithm is "fcn":
+        model, model_name = fcn.fcn32(input_size=input_size, num_classes=num_classes)
+    elif algorithm is "tiramisu":
+        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
+    elif algorithm is "unet":
+        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
+    else:
+        raise Exception("Invalid algorithm")
 
-    print("Loading saved weights")
-    model.load_weights('weights/unet.hdf5')
+    if os.path.isfile('weights/{}.hdf5'.format(model_name)):
+        print("Loading saved weights")
+        model.load_weights('weights/{}.hdf5'.format(model_name))
+    else:
+        raise Exception("No weights")
 
     test_amount = 1
 
@@ -57,4 +65,5 @@ if __name__ == "__main__":
             ax3.set_title('Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls + 1]))
             ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'),
                        interpolation='nearest', vmin=0, vmax=1)
+        plt.suptitle('{}'.format(algorithm))
         plt.show()

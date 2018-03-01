@@ -40,8 +40,10 @@ if __name__ == "__main__":
     model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='loss', save_best_only=True)
 
     # Setup tensorboard model
-    tbCallBack = TensorBoard(log_dir='tensorboard_log/{}/'.format(model_name), histogram_freq=1,
-                             write_graph=True, write_images=True)
+    tbCallBack = TensorBoard(log_dir='tensorboard_log/{}/'.format(model_name),
+                             histogram_freq=0,
+                             write_graph=False,
+                             write_images=False)
 
     val_x, val_y = generator.next(amount=val_amount)
 
