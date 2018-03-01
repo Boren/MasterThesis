@@ -1,21 +1,18 @@
-import os
+from typing import Tuple
 
 from keras import Model, Input
-from keras.layers import MaxPooling2D, Conv2D, UpSampling2D, concatenate
-from keras.regularizers import l2
+from keras.layers import UpSampling2D, Conv2D, MaxPooling2D, Dropout
 from keras.optimizers import Adam
+from keras.regularizers import l2
 
-from utils.BilinearUpSampling import *
 from utils import metrics
 
 
-def fcn32(input_size: int, num_classes: int, channels: int = 3, weight_decay=0.) -> Model:
+def fcn32(input_size: int, num_classes: int, channels: int = 3, weight_decay=0.) -> Tuple[Model, str]:
     """
     Fully Convolutional Networks for Semantic Segmentation
 
-
     https://github.com/divamgupta/image-segmentation-keras
-
     """
     img_input = Input((input_size, input_size, channels))
 
@@ -56,8 +53,9 @@ def fcn32(input_size: int, num_classes: int, channels: int = 3, weight_decay=0.)
     # CLASSIFIER
     x = Conv2D(num_classes, (1, 1), kernel_initializer='he_normal', activation='softmax', padding='valid', strides=(1, 1), kernel_regularizer=l2(weight_decay))(x)
 
-    x = BilinearUpSampling2D(size=(32, 32))(x)
+    x = UpSampling2D(size=(32, 32))(x)
 
     model = Model(img_input, x)
     model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy', metrics.mean_iou])
-    return model
+
+    return model, "fcn"
