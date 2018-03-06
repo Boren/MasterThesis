@@ -2,7 +2,9 @@ import datetime
 import os
 
 from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.optimizers import SGD
 from keras.utils import plot_model
+from keras_contrib.applications.densenet import DenseNetFCN
 
 from models import fcn, unet, tiramisu
 from data_loader import Generator
@@ -11,20 +13,32 @@ from data_loader import Generator
 if __name__ == "__main__":
     # TODO: Load arguments from command line
     num_classes = 10
-    input_size = 160
-    epochs = 1
-    batch_size = 1
-    val_amount = 1
-    algorithm = "fcn"
+    input_size = 320
+    epochs = 1000
+    batch_size = 100
+    val_amount = 20
+    algorithm = "densefcn"
+    predict_single_image = True
 
-    generator = Generator(patch_size=input_size, batch_size=batch_size)
+    generator = Generator(patch_size=input_size,
+                          batch_size=batch_size)
 
     if algorithm is "fcn":
-        model, model_name = fcn.fcn32(input_size=input_size, num_classes=num_classes)
+        model, model_name = fcn.fcn32(input_size=input_size,
+                                      num_classes=num_classes)
+    elif algorithm is "densefcn":
+        model = DenseNetFCN(input_shape=(input_size, input_size, 3), classes=10)
+        model_name = "fcn_densenet"
+        from models.fcn import binary_crossentropy_with_logits
+        model.compile(optimizer=SGD(lr=0.01 * (float(100) / 16), momentum=0.9),
+                      loss=binary_crossentropy_with_logits,
+                      metrics=['accuracy'])
     elif algorithm is "tiramisu":
-        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
+        model, model_name = tiramisu.tiramisu(input_size=input_size,
+                                              num_classes=num_classes)
     elif algorithm is "unet":
-        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
+        model, model_name = unet.unet(input_size=input_size,
+                                      num_classes=num_classes)
     else:
         raise Exception("Invalid algorithm")
 
@@ -34,8 +48,12 @@ if __name__ == "__main__":
             print("Loading saved weights")
             model.load_weights('weights/{}.hdf5'.format(model_name))
     model.summary()
+
+    if not os.path.exists('images'):
+        os.makedirs('images')
     plot_model(model, show_shapes=False, to_file="images/{}_model.png".format(model_name))
     plot_model(model, show_shapes=True, to_file="images/{}_model_shapes.png".format(model_name))
+
     if not os.path.exists('weights'):
         os.makedirs('weights')
     model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='loss', save_best_only=True)
