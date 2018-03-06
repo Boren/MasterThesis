@@ -1,3 +1,4 @@
+import datetime
 import os
 
 from keras.callbacks import ModelCheckpoint, TensorBoard
@@ -40,7 +41,8 @@ if __name__ == "__main__":
     model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='loss', save_best_only=True)
 
     # Setup tensorboard model
-    tbCallBack = TensorBoard(log_dir='tensorboard_log/{}/'.format(model_name),
+    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
+    tbCallBack = TensorBoard(log_dir='tensorboard_log/{}_{}/'.format(model_name, timenow),
                              histogram_freq=0,
                              write_graph=False,
                              write_images=False)
