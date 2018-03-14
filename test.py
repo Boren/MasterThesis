@@ -12,29 +12,16 @@ from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL, mask_for_array
 from models import unet, fcn, tiramisu
 from data_loader import Generator
 
+from train import get_model
+
 if __name__ == "__main__":
     num_classes = 10
-    input_size = 320
-    algorithm = "densefcn"
+    input_size = 473
+    algorithm = "pspnet"
 
     generator = Generator(patch_size=input_size)
 
-    if algorithm is "fcn":
-        model, model_name = fcn.fcn32(input_size=input_size, num_classes=num_classes)
-    elif algorithm is "densefcn":
-        model = DenseNetFCN(input_shape=(input_size, input_size, 3), classes=10)
-        model_name = "fcn_densenet"
-        from models.fcn import binary_crossentropy_with_logits
-
-        model.compile(optimizer=SGD(lr=0.01 * (float(100) / 16), momentum=0.9),
-                      loss=binary_crossentropy_with_logits,
-                      metrics=['accuracy'])
-    elif algorithm is "tiramisu":
-        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
-    elif algorithm is "unet":
-        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
-    else:
-        raise Exception("Invalid algorithm")
+    model, model_name = get_model(algorithm, input_size, num_classes)
 
     if os.path.isfile('weights/{}.hdf5'.format(model_name)):
         print("Loading saved weights from weights/{}.hdf5".format(model_name))

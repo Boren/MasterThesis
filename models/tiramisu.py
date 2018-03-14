@@ -15,6 +15,7 @@ from utils import metrics
 def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, str]:
     """
     The One Hundred Layers Tiramisu: Fully Convolutional DenseNets for Semantic Segmentation
+
     https://arxiv.org/abs/1611.09326
     https://github.com/0bserver07/One-Hundred-Layers-Tiramisu
 
@@ -28,17 +29,20 @@ def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Mode
     model.add(Conv2D(48, kernel_size=(3, 3), padding='same',
                      input_shape=(input_size, input_size, channels),
                      kernel_initializer="he_uniform",
-                     kernel_regularizer=l2(0.0001),
-                     data_format='channels_last'))
+                     kernel_regularizer=l2(0.0001)))
 
     model = dense_block(model, 4, 112)
     model = transition_down(model, 112)
+
     model = dense_block(model, 5, 192)
     model = transition_down(model, 192)
+
     model = dense_block(model, 7, 304)
     model = transition_down(model, 304)
+
     model = dense_block(model, 10, 464)
     model = transition_down(model, 464)
+
     model = dense_block(model, 12, 656)
     model = transition_down(model, 656)
 
@@ -62,8 +66,7 @@ def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Mode
     model.add(Conv2D(num_classes, kernel_size=(1, 1),
                      padding='same',
                      kernel_initializer="he_uniform",
-                     kernel_regularizer=l2(0.0001),
-                     data_format='channels_last'))
+                     kernel_regularizer=l2(0.0001)))
 
     model.add(Conv2D(num_classes, (1, 1), activation='sigmoid'))
 
@@ -81,8 +84,7 @@ def dense_block(model, layers, filters):
                                      beta_regularizer=l2(0.0001)))
         model.add(Activation('relu'))
         model.add(Conv2D(filters, kernel_size=(3, 3), padding='same',
-                         kernel_initializer="he_uniform",
-                         data_format='channels_last'))
+                         kernel_initializer="he_uniform"))
         model.add(Dropout(0.2))
 
     return model
@@ -97,8 +99,7 @@ def transition_down(model, filters):
                      kernel_initializer="he_uniform"))
     model.add(Dropout(0.2))
     model.add(MaxPooling2D(pool_size=(2, 2),
-                           strides=(2, 2),
-                           data_format='channels_last'))
+                           strides=(2, 2)))
 
     return model
 
@@ -107,7 +108,6 @@ def transition_up(model, filters, input_shape):
     model.add(Conv2DTranspose(filters, kernel_size=(3, 3), strides=(2, 2),
                               padding='same',
                               input_shape=input_shape,
-                              kernel_initializer="he_uniform",
-                              data_format='channels_last'))
+                              kernel_initializer="he_uniform"))
 
     return model

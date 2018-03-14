@@ -6,26 +6,13 @@ from keras.optimizers import SGD
 from keras.utils import plot_model
 from keras_contrib.applications.densenet import DenseNetFCN
 
-from models import fcn, unet, tiramisu
+from models import fcn, unet, tiramisu, pspnet
 from data_loader import Generator
 
 
-if __name__ == "__main__":
-    # TODO: Load arguments from command line
-    num_classes = 10
-    input_size = 320
-    epochs = 1000
-    batch_size = 100
-    val_amount = 20
-    algorithm = "densefcn"
-    predict_single_image = True
-
-    generator = Generator(patch_size=input_size,
-                          batch_size=batch_size)
-
+def get_model(algorithm: str, input_size: int, num_classes: int):
     if algorithm is "fcn":
-        model, model_name = fcn.fcn32(input_size=input_size,
-                                      num_classes=num_classes)
+        model, model_name = fcn.fcn32(input_size=input_size, num_classes=num_classes)
     elif algorithm is "densefcn":
         model = DenseNetFCN(input_shape=(input_size, input_size, 3), classes=10)
         model_name = "fcn_densenet"
@@ -34,13 +21,30 @@ if __name__ == "__main__":
                       loss=binary_crossentropy_with_logits,
                       metrics=['accuracy'])
     elif algorithm is "tiramisu":
-        model, model_name = tiramisu.tiramisu(input_size=input_size,
-                                              num_classes=num_classes)
+        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
     elif algorithm is "unet":
-        model, model_name = unet.unet(input_size=input_size,
-                                      num_classes=num_classes)
+        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
+    elif algorithm is "pspnet":
+        model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes)
     else:
         raise Exception("Invalid algorithm")
+
+    return model, model_name
+
+
+if __name__ == "__main__":
+    # TODO: Load arguments from command line
+    num_classes = 10
+    input_size = 473
+    epochs = 1000
+    batch_size = 50
+    val_amount = 20
+    algorithm = "pspnet"
+
+    generator = Generator(patch_size=input_size,
+                          batch_size=batch_size)
+
+    model, model_name = get_model(algorithm, input_size, num_classes)
 
     if os.path.isfile('weights/{}.hdf5'.format(model_name)):
         load = input("Saved weights found. Load? (y/n)")

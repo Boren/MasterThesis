@@ -1,596 +1,259 @@
-import keras.backend as K
-from keras.engine import InputSpec
-from keras.engine.topology import Layer
-from keras.layers import Input, Reshape, Permute, Dense, Activation, Conv2D, merge
-from keras.layers import MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, BatchNormalization
-from keras.layers import ZeroPadding2D, Lambda, Conv2DTranspose
-from keras.layers import multiply, add, concatenate
+from math import ceil
+from typing import Tuple
+
+from keras import layers
+from keras.layers import Conv2D, MaxPooling2D, AveragePooling2D
+from keras.layers import BatchNormalization, Activation, Input, Dropout, ZeroPadding2D
+from keras.layers.merge import Concatenate, Add
 from keras.models import Model
-from keras.utils import conv_utils
+from keras.optimizers import Adam
+from keras.backend import tf as ktf
 
 
-class CroppingLike2D(Layer):
-    def __init__(self, target_shape, offset=None, data_format=None, **kwargs):
-        super(CroppingLike2D, self).__init__(**kwargs)
-        self.data_format = conv_utils.normalize_data_format(data_format)
-        self.target_shape = target_shape
-        if offset is None or offset == 'centered':
-            self.offset = 'centered'
-        elif isinstance(offset, int):
-            self.offset = (offset, offset)
-        elif hasattr(offset, '__len__'):
-            if len(offset) != 2:
-                raise ValueError('`offset` should have two elements. '
-                                 'Found: ' + str(offset))
-            self.offset = offset
-        self.input_spec = InputSpec(ndim=4)
+learning_rate = 1e-3
 
-    def compute_output_shape(self, input_shape):
-        if self.data_format == 'channels_first':
-            return (input_shape[0],
-                    input_shape[1],
-                    self.target_shape[2],
-                    self.target_shape[3])
-        else:
-            return (input_shape[0],
-                    self.target_shape[1],
-                    self.target_shape[2],
-                    input_shape[3])
 
-    def call(self, inputs):
-        input_shape = K.int_shape(inputs)
-        if self.data_format == 'channels_first':
-            input_height = input_shape[2]
-            input_width = input_shape[3]
-            target_height = self.target_shape[2]
-            target_width = self.target_shape[3]
-            if target_height > input_height or target_width > input_width:
-                raise ValueError('The Tensor to be cropped need to be smaller'
-                                 'or equal to the target Tensor.')
-
-            if self.offset == 'centered':
-                self.offset = [
-                    int((input_height - target_height) / 2),
-                    int((input_width - target_width) / 2)]
-
-            if self.offset[0] + target_height > input_height:
-                raise ValueError('Height index out of range: '
-                                 + str(self.offset[0] + target_height))
-            if self.offset[1] + target_width > input_width:
-                raise ValueError('Width index out of range:'
-                                 + str(self.offset[1] + target_width))
-
-            return inputs[:,
-                   :,
-                   self.offset[0]:self.offset[0] + target_height,
-                   self.offset[1]:self.offset[1] + target_width]
-        elif self.data_format == 'channels_last':
-            input_height = input_shape[1]
-            input_width = input_shape[2]
-            target_height = self.target_shape[1]
-            target_width = self.target_shape[2]
-            if target_height > input_height or target_width > input_width:
-                raise ValueError('The Tensor to be cropped need to be smaller'
-                                 'or equal to the target Tensor.')
-
-            if self.offset == 'centered':
-                self.offset = [int((input_height - target_height) / 2),
-                               int((input_width - target_width) / 2)]
-
-            if self.offset[0] + target_height > input_height:
-                raise ValueError('Height index out of range: '
-                                 + str(self.offset[0] + target_height))
-            if self.offset[1] + target_width > input_width:
-                raise ValueError('Width index out of range:'
-                                 + str(self.offset[1] + target_width))
-            output = inputs[
-                     :,
-                     self.offset[0]:self.offset[0] + target_height,
-                     self.offset[1]:self.offset[1] + target_width,
-                     :]
-            return output
-
-
-class BilinearUpSampling2D(Layer):
-    def __init__(self, target_shape=None, factor=None, data_format=None, **kwargs):
-        # conmpute dataformat
-        if data_format is None:
-            data_format = K.image_data_format()
-        assert data_format in {
-            'channels_last', 'channels_first'}
-
-        self.data_format = data_format
-        self.input_spec = [InputSpec(ndim=4)]
-        self.target_shape = target_shape
-        self.factor = factor
-        if self.data_format == 'channels_first':
-            self.target_size = (target_shape[2], target_shape[3])
-        elif self.data_format == 'channels_last':
-            self.target_size = (target_shape[1], target_shape[2])
-        super(BilinearUpSampling2D, self).__init__(**kwargs)
-
-    def compute_output_shape(self, input_shape):
-        if self.data_format == 'channels_last':
-            return (input_shape[0], self.target_size[0],
-                    self.target_size[1], input_shape[3])
-        else:
-            return (input_shape[0], input_shape[1],
-                    self.target_size[0], self.target_size[1])
-
-    def call(self, inputs):
-        return K.resize_images(inputs, self.factor, self.factor, self.data_format)
-
-    def get_config(self):
-        config = {'target_shape': self.target_shape,
-                  'data_format': self.data_format}
-        base_config = super(BilinearUpSampling2D, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
-
-def identity_block(input_tensor, kernel_size, filters, stage, block, dilation_rate=1, multigrid=[1, 2, 1], use_se=True):
-    # conv filters
-    filters1, filters2, filters3 = filters
-
-    # compute dataformat
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
-    # layer names
-    conv_name_base = 'res' + str(stage) + block + '_branch'
-    bn_name_base = 'bn' + str(stage) + block + '_branch'
-
-    # dilated rate
-    if dilation_rate < 2:
-        multigrid = [1, 1, 1]
-
-    # forward
-    x = Conv2D(filters1,
-               (1, 1),
-               name=conv_name_base + '2a',
-               dilation_rate=dilation_rate * multigrid[0])(input_tensor)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2a')(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(filters2,
-               kernel_size,
-               padding='same',
-               name=conv_name_base + '2b',
-               dilation_rate=dilation_rate * multigrid[1])(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2b')(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(filters3,
-               (1, 1),
-               name=conv_name_base + '2c',
-               dilation_rate=dilation_rate * multigrid[2])(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2c')(x)
-
-    # stage 5 after
-    if use_se and stage < 5:
-        se = _squeeze_excite_block(x, filters3, k=1, name=conv_name_base + '_se')
-        x = multiply([x, se])
-    x = add([x, input_tensor])
-    x = Activation('relu')(x)
-
-    return x
-
-
-def _conv(**conv_params):
-    # conv params
-    filters = conv_params["filters"]
-    kernel_size = conv_params["kernel_size"]
-    strides = conv_params.setdefault("strides", (1, 1))
-    dilation_rate = conv_params.setdefault('dilation_rate', (1, 1))
-    kernel_initializer = conv_params.setdefault("kernel_initializer", "he_normal")
-    padding = conv_params.setdefault("padding", "same")
-    block = conv_params.setdefault("block", "assp")
-
-    def f(input):
-        conv = Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            dilation_rate=dilation_rate,
-            kernel_initializer=kernel_initializer, activation='linear')(input)
-        return conv
-
-    return f
-
-
-def aspp_block(x, num_filters=256, rate_scale=1, output_stride=16, input_shape=(512, 512, 3)):
-    # compute dataformat
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
-    # forward
-    conv3_3_1 = ZeroPadding2D(padding=(6 * rate_scale, 6 * rate_scale))(x)
-    conv3_3_1 = _conv(
-        filters=num_filters,
-        kernel_size=(3, 3),
-        dilation_rate=(6 * rate_scale, 6 * rate_scale),
-        padding='valid',
-        block='assp_3_3_1_%s' % output_stride)(conv3_3_1)
-    conv3_3_1 = BatchNormalization(axis=bn_axis, name='bn_3_3_1_%s' % output_stride)(conv3_3_1)
-
-    conv3_3_2 = ZeroPadding2D(padding=(12 * rate_scale, 12 * rate_scale))(x)
-    conv3_3_2 = _conv(
-        filters=num_filters,
-        kernel_size=(3, 3),
-        dilation_rate=(12 * rate_scale, 12 * rate_scale),
-        padding='valid',
-        block='assp_3_3_2_%s' % output_stride)(conv3_3_2)
-    conv3_3_2 = BatchNormalization(axis=bn_axis, name='bn_3_3_2_%s' % output_stride)(conv3_3_2)
-
-    conv3_3_3 = ZeroPadding2D(padding=(18 * rate_scale, 18 * rate_scale))(x)
-    conv3_3_3 = _conv(
-        filters=num_filters,
-        kernel_size=(3, 3),
-        dilation_rate=(18 * rate_scale, 18 * rate_scale),
-        padding='valid',
-        block='assp_3_3_3_%s' % output_stride)(conv3_3_3)
-    conv3_3_3 = BatchNormalization(axis=bn_axis, name='bn_3_3_3_%s' % output_stride)(conv3_3_3)
-
-    conv1_1 = _conv(
-        filters=num_filters,
-        kernel_size=(1, 1),
-        padding='same',
-        block='assp_1_1_%s' % output_stride)(x)
-    conv1_1 = BatchNormalization(axis=bn_axis, name='bn_1_1_%s' % output_stride)(conv1_1)
-
-    # global_feat = AveragePooling2D((input_shape[0]/output_stride,input_shape[1]/output_stride))(x)
-    # global_feat = _conv(filters=num_filters, kernel_size=(1, 1),padding='same')(global_feat)
-    # global_feat = BatchNormalization()(global_feat)
-    # global_feat = BilinearUpSampling2D((256,input_shape[0]/output_stride,input_shape[1]/output_stride),factor=input_shape[1]/output_stride)(global_feat)
-
-    y = merge([
-        conv3_3_1,
-        conv3_3_2,
-        conv3_3_3,
-        conv1_1,
-    ],
-        # global_feat,
-        mode='concat', concat_axis=3)
-
-    # y = _conv_bn_relu(filters=1, kernel_size=(1, 1),padding='same')(y)
-    y = _conv(
-        filters=256,
-        kernel_size=(1, 1),
-        padding='same',
-        block='assp_out_%s' % output_stride)(y)
-    y = BatchNormalization(axis=bn_axis, name='bn_out_%s' % output_stride)(y)
-
-    return y
-
-
-def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2), dilation_rate=1, multigrid=[1, 2, 1],
-               use_se=True):
-    # conv filters
-    filters1, filters2, filters3 = filters
-
-    # compute dataformat
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-    conv_name_base = 'res' + str(stage) + block + '_branch'
-    bn_name_base = 'bn' + str(stage) + block + '_branch'
-
-    # dailated rate
-    if dilation_rate > 1:
-        strides = (1, 1)
-    else:
-        multigrid = [1, 1, 1]
-
-    # forward
-    x = Conv2D(
-        filters1,
-        (1, 1),
-        strides=strides,
-        name=conv_name_base + '2a',
-        dilation_rate=dilation_rate * multigrid[0])(input_tensor)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2a')(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(
-        filters2,
-        kernel_size,
-        padding='same',
-        name=conv_name_base + '2b',
-        dilation_rate=dilation_rate * multigrid[1])(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2b')(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(
-        filters3,
-        (1, 1),
-        name=conv_name_base + '2c',
-        dilation_rate=dilation_rate * multigrid[2])(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2c')(x)
-
-    shortcut = Conv2D(
-        filters3,
-        (1, 1),
-        strides=strides,
-        name=conv_name_base + '1')(input_tensor)
-    shortcut = BatchNormalization(axis=bn_axis, name=bn_name_base + '1')(shortcut)
-
-    # stage after 5
-    if use_se and stage < 5:
-        se = _squeeze_excite_block(x, filters3, k=1, name=conv_name_base + '_se')
-        x = multiply([x, se])
-    x = add([x, shortcut])
-    x = Activation('relu')(x)
-
-    return x
-
-
-def duc(x, factor=8, output_shape=(512, 512, 1)):
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-    H, W, c, r = output_shape[0], output_shape[1], output_shape[2], factor
-    h = H / r
-    w = W / r
-    x = Conv2D(
-        c * r * r,
-        (3, 3),
-        padding='same',
-        name='conv_duc_%s' % factor)(x)
-    x = BatchNormalization(axis=bn_axis, name='bn_duc_%s' % factor)(x)
-    x = Activation('relu')(x)
-    x = Permute((3, 1, 2))(x)
-    x = Reshape((c, r, r, h, w))(x)
-    x = Permute((1, 4, 2, 5, 3))(x)
-    x = Reshape((c, H, W))(x)
-    x = Permute((2, 3, 1))(x)
-
-    return x
-
-
-def Interp(x, shape):
-    from keras.backend import tf as ktf
-    new_height, new_width = shape
-    resized = ktf.image.resize_images(x, [int(new_height), int(new_width)], align_corners=True)
-    return resized
-
-
-def interp_block(x, num_filters=512, level=1, input_shape=(512, 512, 3), output_stride=16):
-    feature_map_shape = (input_shape[0] / output_stride, input_shape[1] / output_stride)
-
-    # compute dataformat
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
-    if output_stride == 16:
-        scale = 5
-    elif output_stride == 8:
-        scale = 10
-
-    kernel = (level * scale, level * scale)
-    strides = (level * scale, level * scale)
-    global_feat = AveragePooling2D(kernel, strides=strides, name='pool_level_%s_%s' % (level, output_stride))(x)
-    global_feat = _conv(
-        filters=num_filters,
-        kernel_size=(1, 1),
-        padding='same',
-        name='conv_level_%s_%s' % (level, output_stride))(global_feat)
-    global_feat = BatchNormalization(axis=bn_axis, name='bn_level_%s_%s' % (level, output_stride))(global_feat)
-    global_feat = Lambda(Interp, arguments={'shape': feature_map_shape})(global_feat)
-
-    return global_feat
-
-
-def _squeeze_excite_block(input, filters, k=1, name=None):
-    init = input
-    se_shape = (1, 1, filters * k) if K.image_data_format() == 'channels_last' else (filters * k, 1, 1)
-
-    se = GlobalAveragePooling2D()(init)
-    se = Reshape(se_shape)(se)
-    se = Dense((filters * k) // 16, activation='relu', kernel_initializer='he_normal', use_bias=False,
-               name=name + '_fc1')(se)
-    se = Dense(filters * k, activation='sigmoid', kernel_initializer='he_normal', use_bias=False, name=name + '_fc2')(
-        se)
-    return se
-
-
-# pyramid pooling function
-def pyramid_pooling_module(x, num_filters=512, input_shape=(512, 512, 3), output_stride=16, levels=[6, 3, 2, 1]):
-    # compute data format
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
-    pyramid_pooling_blocks = [x]
-    for level in levels:
-        pyramid_pooling_blocks.append(
-            interp_block(
-                x,
-                num_filters=num_filters,
-                level=level,
-                input_shape=input_shape,
-                output_stride=output_stride))
-
-    y = concatenate(pyramid_pooling_blocks)
-    # y = merge(pyramid_pooling_blocks, mode='concat', concat_axis=3)
-    y = _conv(
-        filters=num_filters,
-        kernel_size=(3, 3),
-        padding='same',
-        block='pyramid_out_%s' % output_stride)(y)
-    y = BatchNormalization(axis=bn_axis, name='bn_pyramid_out_%s' % output_stride)(y)
-    y = Activation('relu')(y)
-
-    return y
-
-
-def crop_deconv(
-        classes,
-        scale=1,
-        kernel_size=(4, 4),
-        strides=(2, 2),
-        crop_offset='centered',
-        weight_decay=0.,
-        block_name='featx'):
-    def f(x, y):
-        def scaling(xx, ss=1):
-            return xx * ss
-
-        scaled = Lambda(
-            scaling,
-            arguments={'ss': scale},
-            name='scale_{}'.format(block_name))(x)
-        score = Conv2D(
-            filters=classes,
-            kernel_size=(1, 1),
-            activation='linear',
-            kernel_initializer='he_normal',
-            kernel_regularizer=l2(weight_decay),
-            name='score_{}'.format(block_name))(scaled)
-
-        if y is None:
-            upscore = Conv2DTranspose(
-                filters=classes,
-                kernel_size=kernel_size,
-                strides=strides,
-                padding='valid',
-                kernel_initializer='he_normal',
-                kernel_regularizer=l2(weight_decay),
-                use_bias=False,
-                name='upscore_{}'.format(block_name))(score)
-        else:
-            crop = CroppingLike2D(
-                target_shape=K.int_shape(y),
-                offset=crop_offset,
-                name='crop_{}'.format(block_name))(score)
-            merge = add([y, crop])
-            upscore = Conv2DTranspose(
-                filters=classes,
-                kernel_size=kernel_size,
-                strides=strides, padding='valid',
-                kernel_initializer='he_normal',
-                kernel_regularizer=l2(weight_decay),
-                use_bias=False,
-                name='upscore_{}'.format(block_name))(merge)
-        return upscore
-
-    return f
-
-
-def PSPNet50(
-        input_shape=(512, 512, 3),
-        n_labels=20,
-        output_stride=16,
-        num_blocks=4,
-        multigrid=[1, 1, 1],
-        levels=[6, 3, 2, 1],
-        use_se=True,
-        output_mode="softmax",
-        upsample_type='deconv'):
-
+def pspnet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, str]:
     """
     Pyramid Scene Parsing Network
+
     https://arxiv.org/abs/1612.01105
-    https://github.com/ykamikawa/PSPNet
+    https://hszhao.github.io/projects/pspnet/
+    https://github.com/Vladkryvoruchko/PSPNet-Keras-tensorflow
+    """
+    inputs = Input((input_size, input_size, channels))
+    resnet = resnet50(inputs)
+    psp = build_pyramid_pooling_module(resnet, (input_size, input_size))
+
+    x = Conv2D(512, (3, 3), padding="same", name="conv5_4", use_bias=False)(psp)
+    x = BN(name="conv5_4_bn")(x)
+    x = Activation('relu')(x)
+    x = Dropout(0.1)(x)
+
+    x = Conv2D(num_classes, (1, 1), name="conv6")(x)
+    x = Interp([input_size, input_size])(x)
+    x = Activation('sigmoid')(x)
+
+    model = Model(inputs=inputs, outputs=x)
+    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+
+    return model, "PSPNet"
+
+
+def BN(name=""):
+    return BatchNormalization(momentum=0.95, name=name, epsilon=1e-5)
+
+
+class Interp(layers.Layer):
+
+    def __init__(self, new_size, **kwargs):
+        self.new_size = new_size
+        super(Interp, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        super(Interp, self).build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        new_height, new_width = self.new_size
+        resized = ktf.image.resize_images(inputs, [new_height, new_width],
+                                          align_corners=True)
+        return resized
+
+    def compute_output_shape(self, input_shape):
+        return tuple([None, self.new_size[0], self.new_size[1], input_shape[3]])
+
+    def get_config(self):
+        config = super(Interp, self).get_config()
+        config['new_size'] = self.new_size
+        return config
+
+
+def residual_conv(prev, level, pad=1, lvl=1, sub_lvl=1, modify_stride=False):
+    lvl = str(lvl)
+    sub_lvl = str(sub_lvl)
+    names = ["conv" + lvl + "_" + sub_lvl + "_1x1_reduce",
+             "conv" + lvl + "_" + sub_lvl + "_1x1_reduce_bn",
+             "conv" + lvl + "_" + sub_lvl + "_3x3",
+             "conv" + lvl + "_" + sub_lvl + "_3x3_bn",
+             "conv" + lvl + "_" + sub_lvl + "_1x1_increase",
+             "conv" + lvl + "_" + sub_lvl + "_1x1_increase_bn"]
+    if modify_stride is False:
+        prev = Conv2D(64 * level, (1, 1), strides=(1, 1), name=names[0],
+                      use_bias=False)(prev)
+    elif modify_stride is True:
+        prev = Conv2D(64 * level, (1, 1), strides=(2, 2), name=names[0],
+                      use_bias=False)(prev)
+
+    prev = BN(name=names[1])(prev)
+    prev = Activation('relu')(prev)
+
+    prev = ZeroPadding2D(padding=(pad, pad))(prev)
+    prev = Conv2D(64 * level, (3, 3), strides=(1, 1), dilation_rate=pad,
+                  name=names[2], use_bias=False)(prev)
+
+    prev = BN(name=names[3])(prev)
+    prev = Activation('relu')(prev)
+    prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[4],
+                  use_bias=False)(prev)
+    prev = BN(name=names[5])(prev)
+    return prev
+
+
+def short_convolution_branch(prev, level, lvl=1, sub_lvl=1, modify_stride=False):
+    lvl = str(lvl)
+    sub_lvl = str(sub_lvl)
+    names = ["conv" + lvl + "_" + sub_lvl + "_1x1_proj",
+             "conv" + lvl + "_" + sub_lvl + "_1x1_proj_bn"]
+
+    if modify_stride is False:
+        prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[0],
+                      use_bias=False)(prev)
+    elif modify_stride is True:
+        prev = Conv2D(256 * level, (1, 1), strides=(2, 2), name=names[0],
+                      use_bias=False)(prev)
+
+    prev = BN(name=names[1])(prev)
+    return prev
+
+
+def empty_branch(prev):
+    return prev
+
+
+def residual_short(prev_layer, level, pad=1, lvl=1, sub_lvl=1, modify_stride=False):
+    prev_layer = Activation('relu')(prev_layer)
+    block_1 = residual_conv(prev_layer, level,
+                            pad=pad, lvl=lvl, sub_lvl=sub_lvl,
+                            modify_stride=modify_stride)
+
+    block_2 = short_convolution_branch(prev_layer, level,
+                                       lvl=lvl, sub_lvl=sub_lvl,
+                                       modify_stride=modify_stride)
+    added = Add()([block_1, block_2])
+    return added
+
+
+def residual_empty(prev_layer, level, pad=1, lvl=1, sub_lvl=1):
+    prev_layer = Activation('relu')(prev_layer)
+
+    block_1 = residual_conv(prev_layer, level, pad=pad,
+                            lvl=lvl, sub_lvl=sub_lvl)
+    block_2 = empty_branch(prev_layer)
+    added = Add()([block_1, block_2])
+    return added
+
+
+def resnet50(inp):
+    # Names for the first couple layers of model
+    names = ["conv1_1_3x3_s2",
+             "conv1_1_3x3_s2_bn",
+             "conv1_2_3x3",
+             "conv1_2_3x3_bn",
+             "conv1_3_3x3",
+             "conv1_3_3x3_bn"]
+
+    # Short branch(only start of network)
+
+    cnv1 = Conv2D(64, (3, 3), strides=(2, 2), padding='same', name=names[0],
+                  use_bias=False)(inp)  # "conv1_1_3x3_s2"
+    bn1 = BN(name=names[1])(cnv1)  # "conv1_1_3x3_s2/bn"
+    relu1 = Activation('relu')(bn1)  # "conv1_1_3x3_s2/relu"
+
+    cnv1 = Conv2D(64, (3, 3), strides=(1, 1), padding='same', name=names[2],
+                  use_bias=False)(relu1)  # "conv1_2_3x3"
+    bn1 = BN(name=names[3])(cnv1)  # "conv1_2_3x3/bn"
+    relu1 = Activation('relu')(bn1)  # "conv1_2_3x3/relu"
+
+    cnv1 = Conv2D(128, (3, 3), strides=(1, 1), padding='same', name=names[4],
+                  use_bias=False)(relu1)  # "conv1_3_3x3"
+    bn1 = BN(name=names[5])(cnv1)  # "conv1_3_3x3/bn"
+    relu1 = Activation('relu')(bn1)  # "conv1_3_3x3/relu"
+
+    res = MaxPooling2D(pool_size=(3, 3), padding='same',
+                       strides=(2, 2))(relu1)  # "pool1_3x3_s2"
+
+    # ---Residual layers(body of network)
+
+    """
+    Modify_stride --Used only once in first 3_1 convolutions block.
+    changes stride of first convolution from 1 -> 2
     """
 
-    # Input shape
-    img_input = Input(shape=input_shape)
+    # 2_1- 2_3
+    res = residual_short(res, 1, pad=1, lvl=2, sub_lvl=1)
+    for i in range(2):
+        res = residual_empty(res, 1, pad=1, lvl=2, sub_lvl=i + 2)
+
+    # 3_1 - 3_3
+    res = residual_short(res, 2, pad=1, lvl=3, sub_lvl=1, modify_stride=True)
+    for i in range(3):
+        res = residual_empty(res, 2, pad=1, lvl=3, sub_lvl=i + 2)
+    # 4_1 - 4_6
+    res = residual_short(res, 4, pad=2, lvl=4, sub_lvl=1)
+    for i in range(5):
+        res = residual_empty(res, 4, pad=2, lvl=4, sub_lvl=i + 2)
+
+    # 5_1 - 5_3
+    res = residual_short(res, 8, pad=4, lvl=5, sub_lvl=1)
+    for i in range(2):
+        res = residual_empty(res, 8, pad=4, lvl=5, sub_lvl=i + 2)
+
+    res = Activation('relu')(res)
+    return res
 
 
-
-    # compute input shape
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
+def interp_block(prev_layer, level, feature_map_shape, input_shape):
+    if input_shape == (473, 473):
+        kernel_strides_map = {1: 60,
+                              2: 30,
+                              3: 20,
+                              6: 10}
+    elif input_shape == (713, 713):
+        kernel_strides_map = {1: 90,
+                              2: 45,
+                              3: 30,
+                              6: 15}
     else:
-        bn_axis = 1
+        print("Pooling parameters for input shape ",
+              input_shape, " are not defined.")
+        exit(1)
+        return
 
-    x = Conv2D(64, (7, 7), strides=(2, 2), padding='same', name='conv1')(img_input)
-    x = BatchNormalization(axis=bn_axis, name='bn_conv1')(x)
-    x = Activation('relu')(x)
-    x = MaxPooling2D((3, 3), strides=(2, 2))(x)
+    names = [
+        "conv5_3_pool" + str(level) + "_conv",
+        "conv5_3_pool" + str(level) + "_conv_bn"
+    ]
+    kernel = (kernel_strides_map[level], kernel_strides_map[level])
+    strides = (kernel_strides_map[level], kernel_strides_map[level])
+    prev_layer = AveragePooling2D(kernel, strides=strides)(prev_layer)
+    prev_layer = Conv2D(512, (1, 1), strides=(1, 1), name=names[0],
+                        use_bias=False)(prev_layer)
+    prev_layer = BN(name=names[1])(prev_layer)
+    prev_layer = Activation('relu')(prev_layer)
+    # prev_layer = Lambda(Interp, arguments={
+    #                    'shape': feature_map_shape})(prev_layer)
+    prev_layer = Interp(feature_map_shape)(prev_layer)
+    return prev_layer
 
-    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1), use_se=use_se)
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b', use_se=use_se)
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c', use_se=use_se)
 
-    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a', use_se=use_se)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b', use_se=use_se)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c', use_se=use_se)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d', use_se=use_se)
+def build_pyramid_pooling_module(res, input_shape):
+    """Build the Pyramid Pooling Module."""
+    # ---PSPNet concat layers with Interpolation
+    feature_map_size = tuple(int(ceil(input_dim / 8.0))
+                             for input_dim in input_shape)
+    print("PSP module will interpolate to a final feature map size of %s" %
+          (feature_map_size, ))
 
-    if output_stride == 8:
-        rate_scale = 2
-    elif output_stride == 16:
-        rate_scale = 1
+    interp_block1 = interp_block(res, 1, feature_map_size, input_shape)
+    interp_block2 = interp_block(res, 2, feature_map_size, input_shape)
+    interp_block3 = interp_block(res, 3, feature_map_size, input_shape)
+    interp_block6 = interp_block(res, 6, feature_map_size, input_shape)
 
-    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                   use_se=use_se)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                       use_se=use_se)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                       use_se=use_se)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                       use_se=use_se)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                       use_se=use_se)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f', dilation_rate=1 * rate_scale, multigrid=multigrid,
-                       use_se=use_se)
-
-    init_rate = 2
-    for block in range(4, num_blocks + 1):
-        if block == 4:
-            block = ''
-        x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a%s' % block, dilation_rate=init_rate * rate_scale,
-                       multigrid=multigrid, use_se=use_se)
-        x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b%s' % block, dilation_rate=init_rate * rate_scale,
-                           multigrid=multigrid, use_se=use_se)
-        x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c%s' % block, dilation_rate=init_rate * rate_scale,
-                           multigrid=multigrid, use_se=use_se)
-        init_rate *= 2
-
-    # x1 = aspp_block(x,256,rate_scale=rate_scale,output_stride=output_stride,input_shape=input_shape)
-
-    x = pyramid_pooling_module(x, num_filters=512, input_shape=input_shape, output_stride=output_stride, levels=levels)
-
-    # x = merge([
-    #         x1,
-    #         x2,
-    #         ], mode='concat', concat_axis=3)
-
-    # upsample_type
-    if upsample_type == 'duc':
-        x = duc(x, factor=output_stride, output_shape=(input_shape[0], input_shape[1], n_labels))
-        out = _conv(filters=n_labels, kernel_size=(1, 1), padding='same', block='out_duc_%s' % output_stride)(x)
-
-    elif upsample_type == 'bilinear':
-        x = _conv(filters=n_labels, kernel_size=(1, 1), padding='same', block='out_bilinear_%s' % output_stride)(x)
-        out = BilinearUpSampling2D((n_labels, input_shape[0], input_shape[1]), factor=output_stride)(x)
-
-    elif upsample_type == 'deconv':
-        out = Conv2DTranspose(
-            filters=n_labels,
-            kernel_size=(output_stride * 2, output_stride * 2),
-            strides=(output_stride, output_stride),
-            padding='same',
-            kernel_initializer='he_normal',
-            kernel_regularizer=None,
-            use_bias=False,
-            name='upscore_{}'.format('out'))(x)
-
-    out = Reshape((input_shape[0] * input_shape[1], n_labels), input_shape=(input_shape[0], input_shape[1], n_labels))(
-        out)
-    # default "softmax"
-    out = Activation(output_mode)(out)
-
-    model = Model(inputs=img_input, outputs=out)
-
-    return model
+    # concat all these layers. resulted
+    # shape=(1,feature_map_size_x,feature_map_size_y,4096)
+    res = Concatenate()([res,
+                         interp_block6,
+                         interp_block3,
+                         interp_block2,
+                         interp_block1])
+    return res
