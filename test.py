@@ -4,20 +4,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import webcolors
 from PIL import Image
-from keras.optimizers import SGD
-from keras_contrib.applications.densenet import DenseNetFCN
+
+import tensorflow as tf
+from keras import backend as keras_backend
+from tensorflow.python import debug as tf_debug
 
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL, mask_for_array
 
-from models import unet, fcn, tiramisu
 from data_loader import Generator
 
 from train import get_model
 
 if __name__ == "__main__":
+    #keras_backend.set_session(tf_debug.TensorBoardDebugWrapperSession(tf.Session(), "Chronos-Manjaro:6064"))
+
     num_classes = 10
-    input_size = 473
-    algorithm = "pspnet"
+    input_size = 320
+    algorithm = "fcn"
 
     generator = Generator(patch_size=input_size)
 
@@ -70,11 +73,11 @@ if __name__ == "__main__":
         for cls in range(10):
             ax2 = plt.subplot(11, 2, 2 * cls + 3)
             ax2.set_title('Ground Truth ({cls})'.format(cls=CLASS_TO_LABEL[cls + 1]))
-            ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('gray'))
+            ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('Reds'))
 
             ax3 = plt.subplot(11, 2, 2 * cls + 4)
             ax3.set_title('Prediction ({cls})'.format(cls=CLASS_TO_LABEL[cls + 1]))
-            ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('gray'),
+            ax3.imshow(test_y_result[patchnum, :, :, cls], cmap=plt.get_cmap('Reds'),
                        interpolation='nearest')
         plt.suptitle('{}'.format(algorithm))
         plt.show()

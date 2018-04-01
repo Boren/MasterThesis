@@ -35,11 +35,11 @@ def get_model(algorithm: str, input_size: int, num_classes: int):
 if __name__ == "__main__":
     # TODO: Load arguments from command line
     num_classes = 10
-    input_size = 473
+    input_size = 320
     epochs = 1000
     batch_size = 50
-    val_amount = 20
-    algorithm = "pspnet"
+    val_amount = 10
+    algorithm = "fcn"
 
     generator = Generator(patch_size=input_size,
                           batch_size=batch_size)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
     tbCallBack = TensorBoard(log_dir='tensorboard_log/{}_{}/'.format(model_name, timenow),
                              histogram_freq=0,
-                             write_graph=False,
+                             write_graph=True,
                              write_images=False)
 
     val_x, val_y = generator.next(amount=val_amount)
