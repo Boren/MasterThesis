@@ -1,3 +1,4 @@
+Pillow
 h5py
 keras>=2.1
 git+git://github.com/keras-team/keras-contrib.git@4f07dc3d4c98fd0dd90ba93a87d50b920d8d51e7#egg=keras-contrib

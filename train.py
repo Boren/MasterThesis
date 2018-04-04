@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import os
 
@@ -11,35 +12,41 @@ from data_loader import Generator
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
-    if algorithm is "fcn":
+    if algorithm == 'fcn':
         model, model_name = fcn.fcn32(input_size=input_size, num_classes=num_classes)
-    elif algorithm is "densefcn":
+    elif algorithm == 'densefcn':
         model = DenseNetFCN(input_shape=(input_size, input_size, 3), classes=10)
-        model_name = "fcn_densenet"
+        model_name = 'fcn_densenet'
         from models.fcn import binary_crossentropy_with_logits
         model.compile(optimizer=SGD(lr=0.01 * (float(100) / 16), momentum=0.9),
                       loss=binary_crossentropy_with_logits,
                       metrics=['accuracy'])
-    elif algorithm is "tiramisu":
+    elif algorithm == 'tiramisu':
         model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
-    elif algorithm is "unet":
+    elif algorithm == 'unet':
         model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
-    elif algorithm is "pspnet":
+    elif algorithm == 'pspnet':
         model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes)
     else:
-        raise Exception("Invalid algorithm")
+        raise Exception('{} is an invalid algorithm'.format(algorithm))
 
     return model, model_name
 
 
 if __name__ == "__main__":
-    # TODO: Load arguments from command line
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--algorithm", help="Which algorithm to train/test")
+    parser.add_argument("--epochs", help="How many epochs to run", default=1000, type=int)
+    parser.add_argument("--size", help="Size of image patches to train/test on", default=160, type=int)
+    parser.add_argument("--batch", help="How many samples in a batch", default=100, type=int)
+    args = parser.parse_args()
+
     num_classes = 10
-    input_size = 320
-    epochs = 1000
-    batch_size = 50
-    val_amount = 10
-    algorithm = "fcn"
+    input_size = args.size
+    epochs = args.epochs
+    batch_size = args.batch
+    val_amount = batch_size // 10
+    algorithm = args.algorithm
 
     generator = Generator(patch_size=input_size,
                           batch_size=batch_size)

@@ -19,8 +19,8 @@ if __name__ == "__main__":
     #keras_backend.set_session(tf_debug.TensorBoardDebugWrapperSession(tf.Session(), "Chronos-Manjaro:6064"))
 
     num_classes = 10
-    input_size = 320
-    algorithm = "fcn"
+    input_size = 473
+    algorithm = "pspnet"
 
     generator = Generator(patch_size=input_size)
 
