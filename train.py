@@ -46,15 +46,13 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
 
     if not os.path.exists('images'):
         os.makedirs('images')
-    plot_model(model, show_shapes=False, to_file="images/{}_model.png".format(model_name))
-    plot_model(model, show_shapes=True, to_file="images/{}_model_shapes.png".format(model_name))
 
     if not os.path.exists('weights'):
         os.makedirs('weights')
-    model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='val_loss', save_best_only=True)
+    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
+    model_checkpoint = ModelCheckpoint('weights/{}_{}.hdf5'.format(model_name, timenow), monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
-    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
     tensorboard_callback = TensorBoard(log_dir='tensorboard_log/{}_{}/'.format(model_name, timenow),
                                        histogram_freq=0,
                                        write_graph=True,
@@ -74,9 +72,15 @@ def test(algorithm: str, input_size: int, num_classes: int = 10):
 
     model, model_name = get_model(algorithm, input_size, num_classes)
 
-    if os.path.isfile('weights/{}.hdf5'.format(model_name)):
-        print("Loading saved weights from weights/{}.hdf5".format(model_name))
-        model.load_weights('weights/{}.hdf5'.format(model_name))
+    weight_files = [filename for filename in os.listdir('weights') if filename.startswith(algorithm)]
+    if len(weight_files) > 0:
+        for i, weight in enumerate(weight_files):
+            print('{}:  {}'.format(i, weight))
+
+        selected = int(input("Select a weight file: "))
+        selected_weight = weight_files[selected]
+        print("Loading saved weights from weights/{}".format(selected_weight))
+        model.load_weights('weights/{}'.format(selected_weight))
     else:
         raise Exception("No weights")
 
