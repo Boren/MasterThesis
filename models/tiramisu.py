@@ -2,6 +2,7 @@ from typing import Tuple
 
 import keras.models as models
 from keras import Model
+from keras import backend as keras_backend
 from keras.layers import Conv2D, Conv2DTranspose
 from keras.layers.convolutional import MaxPooling2D
 from keras.layers.core import Dropout, Activation
@@ -19,7 +20,7 @@ def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Mode
     https://arxiv.org/abs/1611.09326
     https://github.com/0bserver07/One-Hundred-Layers-Tiramisu
 
-    103 layers
+    103 layers - High memory requirements
     """
     if input_size <= 8:
         raise Exception("Input size too small")
@@ -78,36 +79,39 @@ def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Mode
 
 
 def dense_block(model, layers, filters):
-    for i in range(layers):
+    with keras_backend.name_scope("Dense_Block"):
+        for i in range(layers):
+            model.add(BatchNormalization(axis=1,
+                                         gamma_regularizer=l2(0.0001),
+                                         beta_regularizer=l2(0.0001)))
+            model.add(Activation('relu'))
+            model.add(Conv2D(filters, kernel_size=(3, 3), padding='same',
+                             kernel_initializer="he_uniform"))
+            model.add(Dropout(0.2))
+
+        return model
+
+
+def transition_down(model, filters):
+    with keras_backend.name_scope("Transition_Down"):
         model.add(BatchNormalization(axis=1,
                                      gamma_regularizer=l2(0.0001),
                                      beta_regularizer=l2(0.0001)))
         model.add(Activation('relu'))
-        model.add(Conv2D(filters, kernel_size=(3, 3), padding='same',
+        model.add(Conv2D(filters, kernel_size=(1, 1), padding='same',
                          kernel_initializer="he_uniform"))
         model.add(Dropout(0.2))
+        model.add(MaxPooling2D(pool_size=(2, 2),
+                               strides=(2, 2)))
 
-    return model
-
-
-def transition_down(model, filters):
-    model.add(BatchNormalization(axis=1,
-                                 gamma_regularizer=l2(0.0001),
-                                 beta_regularizer=l2(0.0001)))
-    model.add(Activation('relu'))
-    model.add(Conv2D(filters, kernel_size=(1, 1), padding='same',
-                     kernel_initializer="he_uniform"))
-    model.add(Dropout(0.2))
-    model.add(MaxPooling2D(pool_size=(2, 2),
-                           strides=(2, 2)))
-
-    return model
+        return model
 
 
 def transition_up(model, filters, input_shape):
-    model.add(Conv2DTranspose(filters, kernel_size=(3, 3), strides=(2, 2),
-                              padding='same',
-                              input_shape=input_shape,
-                              kernel_initializer="he_uniform"))
+    with keras_backend.name_scope("Transistion_Up"):
+        model.add(Conv2DTranspose(filters, kernel_size=(3, 3), strides=(2, 2),
+                                  padding='same',
+                                  input_shape=input_shape,
+                                  kernel_initializer="he_uniform"))
 
-    return model
+        return model
