@@ -51,7 +51,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
 
     if not os.path.exists('weights'):
         os.makedirs('weights')
-    model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='loss', save_best_only=True)
+    model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(model_name), monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
     timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
