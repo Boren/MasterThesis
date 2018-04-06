@@ -4,8 +4,8 @@ from keras import Model, Input
 from keras import backend as keras_backend
 from keras.layers import MaxPooling2D, Conv2D, UpSampling2D, concatenate
 from keras.optimizers import Adam
+from keras_contrib.losses import jaccard_distance
 
-from utils.loss import dice_coefficient_loss
 from utils.metrics import dice_coefficient
 
 
@@ -68,6 +68,8 @@ def unet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, s
     conv10 = Conv2D(num_classes, (1, 1), activation='sigmoid', name='Classification')(conv9)
 
     model = Model(inputs=inputs, outputs=conv10)
-    model.compile(optimizer=Adam(lr=1e-5), loss=dice_coefficient_loss, metrics=[dice_coefficient, 'accuracy'])
+    model.compile(optimizer=Adam(lr=1e-4),
+                  loss=jaccard_distance,
+                  metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "unet"
