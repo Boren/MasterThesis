@@ -31,7 +31,8 @@ class Generator:
     Class responsible for generating batches of data to train on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True,
+    def __init__(self, data_path: str = "data", batch_size: int = 10,
+                 patch_size: int = 572, augment: bool = True,
                  cache_in_memory: bool = False):
         self.data_path = data_path
         self.augment = augment
@@ -42,22 +43,35 @@ class Generator:
         self.cache_x = dict()
         self.cache_y = dict()
 
-        self.grid_sizes = pd.read_csv(os.path.join(self.data_path, 'grid_sizes.csv'), index_col=0)
-        self.training_image_ids = [f for f in os.listdir(os.path.join(self.data_path, "train_geojson_v3"))
-                                   if os.path.isdir(os.path.join(os.path.join(self.data_path, "train_geojson_v3"), f))]
+        grid_sizes_file = os.path.join(self.data_path, 'grid_sizes.csv')
+        self.grid_sizes = pd.read_csv(grid_sizes_file, index_col=0)
+
+        self.training_image_ids = self.get_image_ids('train')
+        self.validation_image_ids = self.get_image_ids('validation')
+        self.test_image_ids = self.get_image_ids('test')
+
+        self.all_image_ids = self.training_image_ids + \
+                             self.validation_image_ids + \
+                             self.test_image_ids
 
         self.preprocess()
 
+    def get_image_ids(self, type: str):
+        folder = os.path.join(self.data_path, '{}_geojson'.format(type))
+        return [f for f in os.listdir(folder)
+                if os.path.isdir(os.path.join(folder, f))]
+
     def preprocess(self):
         """
-        Performs required preprocessing to get images ready for training. Also caches the results for future use.
+        Performs required preprocessing to get images ready for training.
+        Also caches the results for future use.
         """
         cache_folder = os.path.join(self.data_path, "cache")
         if not os.path.isdir(cache_folder):
             os.makedirs(cache_folder)
 
-        for image_id in self.training_image_ids:
-            cache_path = os.path.join(cache_folder, "train_{image_id}".format(image_id=image_id))
+        for image_id in self.all_image_ids:
+            cache_path = os.path.join(cache_folder, "{image_id}".format(image_id=image_id))
             img_width = None
             img_height = None
             temp_data_x = None
@@ -89,7 +103,7 @@ class Generator:
                 self.cache_x[image_id] = temp_data_x
                 self.cache_y[image_id] = temp_data_y
 
-    def next(self, amount: int = None):
+    def next(self, amount: int = None, data_type: str = 'train'):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -101,21 +115,28 @@ class Generator:
             amount = self.batch_size
 
         # Extract a random subset of images from training pool (batch size)
-        training_image_ids = [random.choice(self.training_image_ids) for _ in range(amount)]
+        if data_type == 'train':
+            image_ids = np.random.choice(self.training_image_ids,
+                                         amount, True)
+        elif data_type == 'validation':
+            image_ids = np.random.choice(self.validation_image_ids,
+                                         amount, True)
+        elif data_type == 'test':
+            image_ids = np.random.choice(self.test_image_ids,
+                                         amount, True)
+        else:
+            raise Exception("Not a valid dataset")
+
         x_train_batch = []
         y_train_batch = []
 
-        for image_id in training_image_ids:
+        for image_id in image_ids:
             if self.cache_in_memory:
                 x_train_temp = self.cache_x[image_id]
                 y_train_temp = self.cache_y[image_id]
             else:
-                x_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "train_{image_id}_x.npy".format(image_id=image_id)),
-                                       mmap_mode='r')
-                y_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "train_{image_id}_y.npy".format(image_id=image_id)),
-                                       mmap_mode='r')
+                x_train_temp = np.load(os.path.join(self.data_path, "cache", "{image_id}_x.npy".format(image_id=image_id)), mmap_mode='r')
+                y_train_temp = np.load(os.path.join(self.data_path, "cache", "{image_id}_y.npy".format(image_id=image_id)), mmap_mode='r')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth")
@@ -153,8 +174,8 @@ class Generator:
         return np.array(x_train_batch), np.array(y_train_batch)
 
     def get_patch(self, image: str, x: int, y: int, width: int, height: int):
-        x_train = np.load(os.path.join(self.data_path, "cache", "train_{image_id}_x.npy".format(image_id=image)))
-        y_train = np.load(os.path.join(self.data_path, "cache", "train_{image_id}_y.npy".format(image_id=image)))
+        x_train = np.load(os.path.join(self.data_path, "cache", "{image_id}_x.npy".format(image_id=image)))
+        y_train = np.load(os.path.join(self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)))
 
         x_train = x_train[x:x + width, y:y + height]
         y_train = y_train[x:x + width, y:y + height]

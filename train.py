@@ -7,7 +7,6 @@ import numpy as np
 import webcolors
 from PIL import Image
 from keras.callbacks import ModelCheckpoint, TensorBoard
-from keras.utils import plot_model
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
@@ -29,7 +28,21 @@ def get_model(algorithm: str, input_size: int, num_classes: int):
     return model, model_name
 
 
-def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_classes: int = 10):
+def create_directories():
+    if not os.path.exists('images'):
+        os.makedirs('images')
+
+    if not os.path.exists('weights'):
+        os.makedirs('weights')
+
+    if not os.path.exists('tensorboard_log'):
+        os.makedirs('tensorboard_log')
+
+
+def train(algorithm: str, input_size: int, epochs: int,
+          batch_size: int, num_classes: int = 10):
+    create_directories()
+
     val_amount = max(batch_size // 10, 1)
 
     generator = Generator(patch_size=input_size,
@@ -44,12 +57,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
             model.load_weights('weights/{}.hdf5'.format(model_name))
     model.summary()
 
-    if not os.path.exists('images'):
-        os.makedirs('images')
-
-    if not os.path.exists('weights'):
-        os.makedirs('weights')
-    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
+    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
     model_checkpoint = ModelCheckpoint('weights/{}_{}.hdf5'.format(model_name, timenow), monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
@@ -58,7 +66,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
                                        write_graph=True,
                                        write_images=False)
 
-    val_x, val_y = generator.next(amount=val_amount)
+    val_x, val_y = generator.next(amount=val_amount, data_type='validation')
 
     print("Starting training")
 
@@ -86,13 +94,11 @@ def test(algorithm: str, input_size: int, num_classes: int = 10):
 
     test_amount = 1
 
-    # test_x, test_y = generator.next(amount=test_amount)
-    # test_y_result = model.predict_generator(generator.generator(), steps=test_amount, verbose=1)
-
     # OK test area with buildings, roads etc.
-    test_x_temp, test_y_temp = generator.get_patch(image=test_image,
-                                                   x=811, y=1512,
-                                                   width=input_size, height=input_size)
+    test_x_temp, test_y_temp = \
+        generator.get_patch(image=test_image,
+                            x=811, y=1512,
+                            width=input_size, height=input_size)
 
     test_x = np.array([test_x_temp])
     test_y = np.array([test_y_temp])
@@ -104,8 +110,8 @@ def test(algorithm: str, input_size: int, num_classes: int = 10):
 
     palette = []
 
-    for i in range(1, 11):
-        palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i)])))
+    for i in range(num_classes):
+        palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i+1)])))
 
     result_img.putpalette(palette)
     result_img.save(os.path.join("images", '{}_combined.png'.format(test_image)))
@@ -120,9 +126,10 @@ def test(algorithm: str, input_size: int, num_classes: int = 10):
 
         ax1 = plt.subplot(11, 2, 2)
         ax1.set_title('Combined ground truth')
-        ax1.imshow(mask_for_array(test_y[patchnum, :, :, :]), cmap=plt.get_cmap('gist_ncar'))
+        #ax1.imshow(mask_for_array(test_y[patchnum, :, :, :]), cmap=plt.get_cmap('gist_ncar'))
+        ax1.imshow(result_img)
 
-        for cls in range(10):
+        for cls in range(num_classes):
             ax2 = plt.subplot(11, 2, 2 * cls + 3)
             ax2.set_title('Ground Truth ({cls})'.format(cls=CLASS_TO_LABEL[cls + 1]))
             ax2.imshow(test_y[patchnum, :, :, cls], cmap=plt.get_cmap('Reds'))
@@ -137,11 +144,22 @@ def test(algorithm: str, input_size: int, num_classes: int = 10):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algorithm", help="Which algorithm to train/test")
-    parser.add_argument("--size", help="Size of image patches to train/test on", default=160, type=int)
-    parser.add_argument("--epochs", help="How many epochs to run", default=1000, type=int)
-    parser.add_argument("--batch", help="How many samples in a batch", default=100, type=int)
-    parser.add_argument("--test", help="Run a test", dest='test', action='store_true')
+
+    parser.add_argument("--algorithm",
+                        help="Which algorithm to train/test")
+
+    parser.add_argument("--size", default=160, type=int,
+                        help="Size of image patches to train/test on")
+
+    parser.add_argument("--epochs", default=1000, type=int,
+                        help="How many epochs to run")
+
+    parser.add_argument("--batch", default=100, type=int,
+                        help="How many samples in a batch")
+
+    parser.add_argument("--test", dest='test', action='store_true',
+                        help="Run a test")
+
     parser.set_defaults(test=False)
     args = parser.parse_args()
 
