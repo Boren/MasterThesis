@@ -1,0 +1,5 @@
+{"name":"Missing","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.0091693178783703,0],[0.0091693178783703,-0.0090396015571658],[0,-0.0090396015571658],[0,0],[0.0091693178783703,0]]]},"properties":{"autocad_la":"Grid_6170","fme_basena":"6170_4_1"}}
+,{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.0091693178783703,0],[0.0091693178783703,-0.0090396015571658],[0,-0.0090396015571658],[0,0],[0.0091693178783703,0]]]},"properties":{"autocad_la":"Grid_6170","fme_basena":"6170_4_1"}}
+]}

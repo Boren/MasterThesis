@@ -1,0 +1,4 @@
+{"name":"005_VO_L6_MASTS_RADIO_TOWER","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.000875,-0.006839],[0.000976,-0.0068],[0.001013,-0.006897],[0.000912,-0.006936],[0.000875,-0.006839]]]},"properties":{"ID":"06786c6a-a42a-467e-8d2a-4c798a277acc","ACAD_LAYER":"005_VO_L6_MASTS_RADIO_TOWER","TILE_NAME":"6100_1_3","SUPERCLASS":"MAN-MADE VERTICAL OBSTRUCTIONS","LABEL":"MASTS_RADIO_TOWER"}}
+]}

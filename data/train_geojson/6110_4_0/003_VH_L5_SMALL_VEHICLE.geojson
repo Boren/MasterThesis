@@ -1,0 +1,6 @@
+{"name":"003_VH_L5_SMALL_VEHICLE","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.001628,-0.003359],[0.001653,-0.003334],[0.001664,-0.003345],[0.001641,-0.003368],[0.001628,-0.003359]]]},"properties":{"ID":"5b5ead07-bfa6-42c5-8523-c74cc02fccb6","ACAD_LAYER":"003_VH_L5_SMALL_VEHICLE","TILE_NAME":"6110_4_0","SUPERCLASS":"MAN-MADE VEHICLES","LABEL":"SMALL_VEHICLE"}}
+,{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.007523,-0.000359],[0.007546,-0.000369],[0.007541,-0.000381],[0.007518,-0.000372],[0.007523,-0.000359]]]},"properties":{"ID":"29eac0d0-b72c-4696-ba55-8b1d4950632a","ACAD_LAYER":"003_VH_L5_SMALL_VEHICLE","TILE_NAME":"6110_4_0","SUPERCLASS":"MAN-MADE VEHICLES","LABEL":"SMALL_VEHICLE"}}
+,{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.002304,-0.0028],[0.002315,-0.002789],[0.00232,-0.002797],[0.00231,-0.002805],[0.002304,-0.0028]]]},"properties":{"ID":"b6739070-dc55-46b5-a704-e00627fbe885","ACAD_LAYER":"003_VH_L5_SMALL_VEHICLE","TILE_NAME":"6110_4_0","SUPERCLASS":"MAN-MADE VEHICLES","LABEL":"SMALL_VEHICLE"}}
+]}

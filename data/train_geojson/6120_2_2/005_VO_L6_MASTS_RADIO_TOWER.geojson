@@ -1,0 +1,5 @@
+{"name":"005_VO_L6_MASTS_RADIO_TOWER","type":"FeatureCollection"
+,"features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.002678,-0.008298],[0.002695,-0.008256],[0.002727,-0.00829],[0.002678,-0.008298]]]},"properties":{"ID":"daf2eb35-1dd2-406f-ae7a-38a4466dc42f","ACAD_LAYER":"005_VO_L6_MASTS_RADIO_TOWER","TILE_NAME":"6120_2_2","SUPERCLASS":"MAN-MADE VERTICAL OBSTRUCTIONS","LABEL":"MASTS_RADIO_TOWER"}}
+,{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0.004852,-0.006029],[0.004874,-0.006056],[0.004841,-0.006061],[0.004852,-0.006029]]]},"properties":{"ID":"4a90f437-2512-4b29-9e38-6414444d195b","ACAD_LAYER":"005_VO_L6_MASTS_RADIO_TOWER","TILE_NAME":"6120_2_2","SUPERCLASS":"MAN-MADE VERTICAL OBSTRUCTIONS","LABEL":"MASTS_RADIO_TOWER"}}
+]}
