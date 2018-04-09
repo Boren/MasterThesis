@@ -9,13 +9,16 @@ from keras.layers.core import Dropout, Activation
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.regularizers import l2
+from keras_contrib.losses import jaccard_distance
 
-from utils import metrics
+from utils.metrics import dice_coefficient
 
 
-def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, str]:
+def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> \
+        Tuple[Model, str]:
     """
-    The One Hundred Layers Tiramisu: Fully Convolutional DenseNets for Semantic Segmentation
+    The One Hundred Layers Tiramisu:
+    Fully Convolutional DenseNets for Semantic Segmentation
 
     https://arxiv.org/abs/1611.09326
     https://github.com/0bserver07/One-Hundred-Layers-Tiramisu
@@ -71,9 +74,9 @@ def tiramisu(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Mode
 
     model.add(Conv2D(num_classes, (1, 1), activation='sigmoid'))
 
-    model.compile(optimizer=Adam(lr=1e-3, decay=0.995),
+    model.compile(optimizer=Adam(),
                   loss='binary_crossentropy',
-                  metrics=['accuracy', metrics.mean_iou])
+                  metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "tiramisu"
 

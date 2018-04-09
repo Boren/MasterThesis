@@ -9,7 +9,8 @@ from keras_contrib.losses import jaccard_distance
 from utils.metrics import dice_coefficient
 
 
-def unet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, str]:
+def unet(input_size: int, num_classes: int, channels: int = 3) ->\
+        Tuple[Model, str]:
     """
     U-Net: Convolutional Networks for Biomedical Image Segmentation
 
@@ -65,11 +66,12 @@ def unet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, s
         conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(merge9)
         conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv9)
 
-    conv10 = Conv2D(num_classes, (1, 1), activation='sigmoid', name='Classification')(conv9)
+    conv10 = Conv2D(num_classes, (1, 1), activation='sigmoid',
+                    name='Classification')(conv9)
 
     model = Model(inputs=inputs, outputs=conv10)
-    model.compile(optimizer=Adam(lr=1e-4),
-                  loss=jaccard_distance,
+    model.compile(optimizer=Adam(),
+                  loss='binary_crossentropy',
                   metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "unet"

@@ -9,12 +9,15 @@ from keras.layers.merge import Concatenate, Add
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.backend import tf as ktf
+from keras_contrib.losses import jaccard_distance
 
+from utils.metrics import dice_coefficient
 
 learning_rate = 1e-3
 
 
-def pspnet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model, str]:
+def pspnet(input_size: int, num_classes: int, channels: int = 3) -> \
+        Tuple[Model, str]:
     """
     Pyramid Scene Parsing Network
 
@@ -36,7 +39,9 @@ def pspnet(input_size: int, num_classes: int, channels: int = 3) -> Tuple[Model,
     x = Activation('sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=x)
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(),
+                  loss='binary_crossentropy',
+                  metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "PSPNet"
 
