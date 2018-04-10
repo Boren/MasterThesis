@@ -139,11 +139,11 @@ class Generator:
                 x_train_temp = np.load(os.path.join(self.data_path, "cache",
                                                     "{}_x.npy".format(
                                                         image_id)),
-                                       mmap_mode='r')
+                                       mmap_mode='r+')
                 y_train_temp = np.load(os.path.join(self.data_path, "cache",
                                                     "{}_y.npy".format(
                                                         image_id)),
-                                       mmap_mode='r')
+                                       mmap_mode='r+')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception(

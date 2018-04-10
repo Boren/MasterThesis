@@ -17,7 +17,7 @@ def unet(input_size: int, num_classes: int, channels: int = 3) ->\
     https://arxiv.org/abs/1505.04597
     https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/
     """
-    inputs = Input((input_size, input_size, channels), name="Input")
+    inputs = Input((input_size, input_size, channels), name='Input')
     with keras_backend.name_scope('Encode_1'):
         conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
         conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv1)
@@ -74,4 +74,4 @@ def unet(input_size: int, num_classes: int, channels: int = 3) ->\
                   loss='binary_crossentropy',
                   metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
-    return model, "unet"
+    return model, 'unet'
