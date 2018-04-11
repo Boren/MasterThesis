@@ -7,7 +7,7 @@ import numpy as np
 import webcolors
 from PIL import Image
 from keras.utils import plot_model
-from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
@@ -41,6 +41,15 @@ def create_directories(run_name: str):
 
     if not os.path.exists('tensorboard_log'):
         os.makedirs('tensorboard_log')
+
+
+def learning_rate_decay(epoch):
+    initial_lrate = 0.1
+    drop = 0.5
+    epochs_drop = 10.0
+    lrate = initial_lrate * np.math.pow(drop, np.math.floor(
+        (1 + epoch) / epochs_drop))
+    return lrate
 
 
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
@@ -79,13 +88,19 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
         TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name),
                     histogram_freq=0, write_graph=True, write_images=False)
 
+    learning_rate_callback = LearningRateScheduler(learning_rate_decay)
+
     val_x, val_y = generator.next(amount=val_amount, data_type='validation')
 
     print("Starting training")
 
     model.fit_generator(generator.generator(), steps_per_epoch=batch_size,
                         epochs=epochs, verbose=1,
-                        callbacks=[model_checkpoint, tensorboard_callback],
+                        callbacks=[
+                            model_checkpoint,
+                            tensorboard_callback,
+                            learning_rate_callback
+                        ],
                         validation_data=(val_x, val_y))
 
 
