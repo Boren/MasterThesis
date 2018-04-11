@@ -71,12 +71,12 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
                show_shapes=True)
 
     model_checkpoint = \
-        ModelCheckpoint('weights/run_name.hdf5'.format(run_name),
+        ModelCheckpoint('weights/{}.hdf5'.format(run_name),
                         monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
     tensorboard_callback = \
-        TensorBoard(log_dir='tensorboard_log/run_name/'.format(run_name),
+        TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name),
                     histogram_freq=0, write_graph=True, write_images=False)
 
     val_x, val_y = generator.next(amount=val_amount, data_type='validation')
