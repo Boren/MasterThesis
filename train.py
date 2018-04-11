@@ -88,8 +88,8 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
 
 
 def test(algorithm: str, input_size: int, num_classes: int = 10,
-         verbose: bool = False):
-    test_image = '6060_2_3'
+         verbose: bool = False, prediction_cutoff: float = 0.3):
+    test_image = '6140_3_1'
     generator = Generator(patch_size=input_size)
 
     model, model_name = get_model(algorithm, input_size, num_classes)
@@ -114,13 +114,17 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
     # OK test area with buildings, roads etc.
     test_x_temp, test_y_temp = \
         generator.get_patch(image=test_image,
-                            x=811, y=1512,
+                            x=0, y=0,
                             width=input_size, height=input_size)
 
     test_x = np.array([test_x_temp])
     test_y = np.array([test_y_temp])
 
+    cutoff_array = np.full((test_amount, input_size, input_size, 1),
+                           fill_value=prediction_cutoff)
+
     test_y_result = model.predict(test_x, batch_size=1, verbose=1)
+    test_y_result = np.append(test_y_result, cutoff_array, axis=3)
 
     result = np.argmax(np.squeeze(test_y_result), axis=-1).astype(np.uint8)
     result_img = Image.fromarray(result, mode='P')
@@ -129,6 +133,8 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
 
     for i in range(num_classes):
         palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i+1)])))
+
+    palette.extend([255, 255, 255])
 
     result_img.putpalette(palette)
     result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
