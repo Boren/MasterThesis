@@ -83,8 +83,10 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
 
     print("Starting training")
 
-    model.fit_generator(generator.generator(), steps_per_epoch=batch_size, epochs=epochs, verbose=1,
-                        callbacks=[model_checkpoint, tensorboard_callback], validation_data=(val_x, val_y))
+    model.fit_generator(generator.generator(), steps_per_epoch=batch_size,
+                        epochs=epochs, verbose=1,
+                        callbacks=[model_checkpoint, tensorboard_callback],
+                        validation_data=(val_x, val_y))
 
 
 def test(algorithm: str, input_size: int, num_classes: int = 10,
@@ -94,7 +96,8 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
 
     model, model_name = get_model(algorithm, input_size, num_classes)
 
-    weight_files = [filename for filename in os.listdir('weights') if filename.startswith(algorithm)]
+    weight_files = [filename for filename in os.listdir('weights')
+                    if filename.startswith(model_name)]
     if len(weight_files) > 0:
         for i, weight in enumerate(weight_files):
             print('{}:  {}'.format(i, weight))
