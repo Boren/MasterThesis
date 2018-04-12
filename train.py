@@ -7,7 +7,7 @@ import numpy as np
 import webcolors
 from PIL import Image
 from keras.utils import plot_model
-from keras.callbacks import ModelCheckpoint, TensorBoard, LearningRateScheduler
+from keras.callbacks import ModelCheckpoint, TensorBoard
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
@@ -43,16 +43,6 @@ def create_directories(run_name: str):
         os.makedirs('tensorboard_log')
 
 
-def learning_rate_decay(epoch):
-    initial_lrate = 0.01
-    drop = 0.5
-    epochs_drop = 10.0
-    lrate = initial_lrate * np.math.pow(drop, np.math.floor(
-        (1 + epoch) / epochs_drop))
-    print('New learning rate: {:.5}'.format(lrate))
-    return lrate
-
-
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
           num_classes: int = 10, verbose: bool = False):
 
@@ -76,9 +66,9 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
     if verbose:
         model.summary()
 
-    #plot_model(model, os.path.join('images', run_name, 'model.png'))
-    #plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
-    #           show_shapes=True)
+    plot_model(model, os.path.join('images', run_name, 'model.png'))
+    plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
+               show_shapes=True)
 
     model_checkpoint = \
         ModelCheckpoint('weights/{}.hdf5'.format(run_name),
@@ -89,19 +79,13 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
         TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name),
                     histogram_freq=0, write_graph=True, write_images=False)
 
-    learning_rate_callback = LearningRateScheduler(learning_rate_decay)
-
     val_x, val_y = generator.next(amount=val_amount, data_type='validation')
 
     print("Starting training")
 
     model.fit_generator(generator.generator(), steps_per_epoch=batch_size,
                         epochs=epochs, verbose=1,
-                        callbacks=[
-                            model_checkpoint,
-                            tensorboard_callback,
-                            learning_rate_callback
-                        ],
+                        callbacks=[model_checkpoint, tensorboard_callback],
                         validation_data=(val_x, val_y))
 
 
