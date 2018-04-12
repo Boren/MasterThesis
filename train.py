@@ -44,11 +44,12 @@ def create_directories(run_name: str):
 
 
 def learning_rate_decay(epoch):
-    initial_lrate = 0.1
+    initial_lrate = 0.01
     drop = 0.5
     epochs_drop = 10.0
     lrate = initial_lrate * np.math.pow(drop, np.math.floor(
         (1 + epoch) / epochs_drop))
+    print('New learning rate: {:.5}'.format(lrate))
     return lrate
 
 
@@ -75,9 +76,9 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
     if verbose:
         model.summary()
 
-    plot_model(model, os.path.join('images', run_name, 'model.png'))
-    plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
-               show_shapes=True)
+    #plot_model(model, os.path.join('images', run_name, 'model.png'))
+    #plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
+    #           show_shapes=True)
 
     model_checkpoint = \
         ModelCheckpoint('weights/{}.hdf5'.format(run_name),
