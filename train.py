@@ -91,19 +91,21 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
 
 
 def test(algorithm: str, input_size: int, num_classes: int = 10,
-         verbose: bool = False, prediction_cutoff: float = 0.3):
-    test_image = '6140_3_1'
+         verbose: bool = False, prediction_cutoff: float = 0.5):
     generator = Generator(patch_size=input_size)
 
     model, model_name = get_model(algorithm, input_size, num_classes)
 
     weight_files = [filename for filename in os.listdir('weights')
                     if filename.startswith(model_name)]
-    if len(weight_files) > 0:
-        for i, weight in enumerate(weight_files):
-            print('{}:  {}'.format(i, weight))
 
-        selected = int(input("Select a weight file: "))
+    if len(weight_files) > 0:
+        if len(weight_files) == 1:
+            selected = 0
+        else:
+            for i, weight in enumerate(weight_files):
+                print('{}:  {}'.format(i, weight))
+            selected = int(input("Select a weight file: "))
         selected_weight = weight_files[selected]
         print("Loading saved weights from weights/{}".format(selected_weight))
         model.load_weights('weights/{}'.format(selected_weight))
@@ -113,37 +115,42 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
     create_directories(os.path.splitext(selected_weight)[0])
     save_folder = os.path.join('images', os.path.splitext(selected_weight)[0])
 
-    test_amount = 1
+    test_images = ['6140_3_1', '6100_2_3']
 
-    # OK test area with buildings, roads etc.
-    test_x_temp, test_y_temp = \
-        generator.get_patch(image=test_image,
-                            x=0, y=0,
-                            width=input_size, height=input_size)
+    for test_image in test_images:
+        print('Testing image {}'.format(test_image))
+        test_x, test_y, new_size, splits, w, h = \
+            generator.get_test_patches(image=test_image, network_size=input_size)
 
-    test_x = np.array([test_x_temp])
-    test_y = np.array([test_y_temp])
+        cutoff_array = np.full((len(test_x), input_size, input_size, 1),
+                               fill_value=prediction_cutoff)
 
-    cutoff_array = np.full((test_amount, input_size, input_size, 1),
-                           fill_value=prediction_cutoff)
+        test_y_result = model.predict(test_x, batch_size=1, verbose=1)
+        test_y_result = np.append(test_y_result, cutoff_array, axis=3)
 
-    test_y_result = model.predict(test_x, batch_size=1, verbose=1)
-    test_y_result = np.append(test_y_result, cutoff_array, axis=3)
+        out = np.zeros((new_size, new_size, num_classes+1))
 
-    result = np.argmax(np.squeeze(test_y_result), axis=-1).astype(np.uint8)
-    result_img = Image.fromarray(result, mode='P')
+        for row in range(splits):
+            for col in range(splits):
+                out[input_size*row:input_size*(row+1), input_size*col:input_size*(col+1), :] = test_y_result[row*splits+col,:,:,:]
 
-    palette = []
+        result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
+        result = result[:w, :h]
 
-    for i in range(num_classes):
-        palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i+1)])))
+        palette = []
 
-    palette.extend([255, 255, 255])
+        for i in range(num_classes):
+            palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i+1)])))
 
-    result_img.putpalette(palette)
-    result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
+        palette.extend([255, 255, 255])
+
+        # for i in range(len(test_x)):
+        result_img = Image.fromarray(result, mode='P')
+        result_img.putpalette(palette)
+        result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
 
     # Plot results
+    '''
     print("Plotting results...")
     for patchnum in range(test_amount):
         plt.figure(figsize=(2000 / 96, 5000 / 96), dpi=96)
@@ -175,6 +182,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
                        interpolation='nearest', vmin=0, vmax=1)
         plt.suptitle('{}'.format(algorithm))
         plt.savefig(os.path.join(save_folder, '{}.png'.format(test_image)))
+    '''
 
 
 def main():

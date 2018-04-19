@@ -9,6 +9,7 @@ import pandas as pd
 import shapely.affinity
 import shapely.wkt
 import tifffile
+from numpy.lib.stride_tricks import as_strided
 from shapely.geometry import MultiPolygon
 
 csv.field_size_limit(2 ** 24)
@@ -301,3 +302,45 @@ class Generator:
         cv2.fillPoly(img_mask, interiors, 0)
 
         return img_mask
+
+    def get_test_patches(self, image, network_size):
+        print('Generating patches for image {}'.format(image))
+
+        x_train = np.load(os.path.join(
+            self.data_path, "cache", "{image_id}_x.npy".format(image_id=image)))
+        y_train = np.load(os.path.join(
+            self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)))
+
+        image_width = x_train.shape[0]
+        image_height = y_train.shape[1]
+
+        print('Width: {} - Height: {}'.format(image_width, image_height))
+
+        # Integer ceil division
+        splits = max(-(-image_width // network_size),
+                     -(-image_height // network_size))
+
+        new_size = splits * network_size
+
+        x_train_pad = np.zeros((new_size, new_size, 3))
+        x_train_pad[:x_train.shape[0], :x_train.shape[1], :] = x_train
+
+        y_train_pad = np.zeros((new_size, new_size, 10))
+        y_train_pad[:y_train.shape[0], :y_train.shape[1], :] = y_train
+
+        print('Splits: {}'.format(splits*splits))
+
+        x = np.empty((splits*splits, network_size, network_size, 3))
+        y = np.empty((splits*splits, network_size, network_size, 10))
+
+        for col in range(splits):
+            for row in range(splits):
+                x_start = network_size * col
+                y_start = network_size * row
+
+                x[col*splits+row] = x_train_pad[x_start:x_start + network_size,
+                                       y_start:y_start + network_size]
+                y[col*splits+row] = y_train_pad[x_start:x_start + network_size,
+                                       y_start:y_start + network_size]
+
+        return np.array(x), np.array(y), new_size, splits, image_width, image_height
