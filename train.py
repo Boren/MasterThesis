@@ -183,7 +183,7 @@ def main():
     parser.add_argument("--algorithm",
                         help="Which algorithm to train/test")
 
-    parser.add_argument("--size", default=160, type=int,
+    parser.add_argument("--size", default=256, type=int,
                         help="Size of image patches to train/test on")
 
     parser.add_argument("--epochs", default=1000, type=int,
