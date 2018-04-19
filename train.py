@@ -16,13 +16,17 @@ from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL, mask_for_array
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
     if algorithm == 'fcn_densenet':
-        model, model_name = fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes)
+        model, model_name = \
+            fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes)
     elif algorithm == 'tiramisu':
-        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
+        model, model_name = \
+            tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
     elif algorithm == 'unet':
-        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes)
+        model, model_name = \
+            unet.unet(input_size=input_size, num_classes=num_classes)
     elif algorithm == 'pspnet':
-        model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes)
+        model, model_name = \
+            pspnet.pspnet(input_size=input_size, num_classes=num_classes)
     else:
         raise Exception('{} is an invalid algorithm'.format(algorithm))
 
@@ -30,17 +34,10 @@ def get_model(algorithm: str, input_size: int, num_classes: int):
 
 
 def create_directories(run_name: str):
-    if not os.path.exists('images'):
-        os.makedirs('images')
-
-    if not os.path.exists('images/{}'.format(run_name)):
-        os.makedirs('images/{}'.format(run_name))
-
-    if not os.path.exists('weights'):
-        os.makedirs('weights')
-
-    if not os.path.exists('tensorboard_log'):
-        os.makedirs('tensorboard_log')
+    os.makedirs('images', exist_ok=True)
+    os.makedirs('images/{}'.format(run_name), exist_ok=True)
+    os.makedirs('weights', exist_ok=True)
+    os.makedirs('tensorboard_log', exist_ok=True)
 
 
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
@@ -66,9 +63,13 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
     if verbose:
         model.summary()
 
-    plot_model(model, os.path.join('images', run_name, 'model.png'))
-    plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
+    # Some doesn't have graphviz installed. Skip if not installed.
+    try:
+        plot_model(model, os.path.join('images', run_name, 'model.png'))
+        plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
                show_shapes=True)
+    except:
+        print("Skipping model plot")
 
     model_checkpoint = \
         ModelCheckpoint('weights/{}.hdf5'.format(run_name),

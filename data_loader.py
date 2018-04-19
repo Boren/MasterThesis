@@ -48,11 +48,9 @@ class Generator:
 
         self.training_image_ids = self.get_image_ids('train')
         self.validation_image_ids = self.get_image_ids('validation')
-        self.test_image_ids = self.get_image_ids('test')
 
         self.all_image_ids = self.training_image_ids + \
-                             self.validation_image_ids + \
-                             self.test_image_ids
+                             self.validation_image_ids
 
         self.preprocess()
 
@@ -83,6 +81,20 @@ class Generator:
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_x", temp_data_x)
+
+            if not os.path.isfile(cache_path + "_M.npy"):
+                print("Caching image {} - M band".format(image_id))
+                temp_data_x = self.read_image(image_id, band="M")
+                img_width = temp_data_x.shape[0]
+                img_height = temp_data_x.shape[1]
+                np.save(cache_path + "_M", temp_data_x)
+
+            if not os.path.isfile(cache_path + "_A.npy"):
+                print("Caching image {} - A band".format(image_id))
+                temp_data_x = self.read_image(image_id, band="A")
+                img_width = temp_data_x.shape[0]
+                img_height = temp_data_x.shape[1]
+                np.save(cache_path + "_A", temp_data_x)
 
             if not os.path.isfile(cache_path + "_y.npy"):
                 print("Caching ground truth {}".format(image_id))
@@ -209,19 +221,25 @@ class Generator:
         """
         return self.grid_sizes[image_number]
 
-    def read_image(self, image_id: str, band: int = 3):
+    def read_image(self, image_id: str, band: str = 'RGB'):
         """
         Reads a image number from specified band.
         Stores the image in a numpy array.
         """
-        if band == 3:
-            filename = os.path.join(self.data_path, "three_band",
+        if band == 'RGB':
+            filename = os.path.join(self.data_path, 'three_band',
                                     '{}.tif'.format(image_id))
             raw_data = tifffile.imread(filename).transpose([1, 2, 0])
             image_data = scale_image_percentile(raw_data)
             return image_data
+        elif band == 'M' or band == 'A':
+            filename = os.path.join(self.data_path, 'sixteen_band',
+                                    '{}_{}.tif'.format(image_id, band))
+            raw_data = tifffile.imread(filename).transpose([1, 2, 0])
+            image_data = scale_image_percentile(raw_data)
+            return image_data
         else:
-            raise Exception("Only 3-band is implemented")
+            raise Exception("Band not implemented")
 
     def scale_coords(self, img_size: Tuple[int, int], image_number: str) -> \
             Tuple[float, float]:

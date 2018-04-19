@@ -44,25 +44,29 @@ def unet(input_size: int, num_classes: int, channels: int = 3) ->\
 
     with keras_backend.name_scope('Decode_1'):
         up1 = UpSampling2D(size=(2, 2), name='Upsampling_1')(conv5)
-        merge6 = concatenate([up1, conv4], axis=3, name='Merge_1')
+        upconv1 = Conv2D(256, (2, 2), activation='relu', padding='same')(up1)
+        merge6 = concatenate([upconv1, conv4], axis=3, name='Merge_1')
         conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(merge6)
         conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(conv6)
 
     with keras_backend.name_scope('Decode_2'):
         up2 = UpSampling2D(size=(2, 2), name='Upsampling_2')(conv6)
-        merge7 = concatenate([up2, conv3], axis=3, name='Merge_2')
+        upconv2 = Conv2D(256, (2, 2), activation='relu', padding='same')(up2)
+        merge7 = concatenate([upconv2, conv3], axis=3, name='Merge_2')
         conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(merge7)
         conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv7)
 
     with keras_backend.name_scope('Decode_3'):
         up3 = UpSampling2D(size=(2, 2), name='Upsampling_3')(conv7)
-        merge8 = concatenate([up3, conv2], axis=3, name='Merge_3')
+        upconv3 = Conv2D(256, (2, 2), activation='relu', padding='same')(up3)
+        merge8 = concatenate([upconv3, conv2], axis=3, name='Merge_3')
         conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(merge8)
         conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv8)
 
     with keras_backend.name_scope('Decode_4'):
         up4 = UpSampling2D(size=(2, 2), name='Upsampling_4')(conv8)
-        merge9 = concatenate([up4, conv1], axis=3, name='Merge_4')
+        upconv4 = Conv2D(256, (2, 2), activation='relu', padding='same')(up4)
+        merge9 = concatenate([upconv4, conv1], axis=3, name='Merge_4')
         conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(merge9)
         conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv9)
 
