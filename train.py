@@ -138,6 +138,16 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
                                                               row * splits + col,
                                                               :, :, :]
 
+        if test_y is not None:
+            out_test = np.zeros((new_size, new_size, num_classes + 1))
+
+            for row in range(splits):
+                for col in range(splits):
+                    out_test[input_size * row:input_size * (row + 1),
+                    input_size * col:input_size * (col + 1), :] = test_y[
+                                                                  row * splits + col,
+                                                                  :, :, :]
+
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
 
