@@ -33,14 +33,12 @@ class Generator:
     """
 
     def __init__(self, data_path: str = "data", batch_size: int = 10,
-                 patch_size: int = 572, augment: bool = True,
-                 cache_in_memory: bool = False):
+                 patch_size: int = 572, augment: bool = True):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
 
-        self.cache_in_memory = cache_in_memory
         self.cache_x = dict()
         self.cache_y = dict()
 
@@ -50,9 +48,8 @@ class Generator:
         self.training_image_ids = self.get_image_ids('train')
         self.validation_image_ids = self.get_image_ids('validation')
 
-        self.all_image_ids = self.training_image_ids + \
-                             self.validation_image_ids
-
+        self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(
+            os.path.join(self.data_path, 'three_band'))]
         self.preprocess()
 
     def get_image_ids(self, type: str):
@@ -73,31 +70,37 @@ class Generator:
             cache_path = os.path.join(cache_folder, "{}".format(image_id))
             img_width = None
             img_height = None
-            temp_data_x = None
-            temp_data_y = None
 
-            if not os.path.isfile(cache_path + "_x.npy"):
+            if not os.path.isfile(cache_path + "_x.npy") and \
+                    os.path.isfile(os.path.join(self.data_path, 'three_band',
+                                                '{}.tif'.format(image_id))):
                 print("Caching image {}".format(image_id))
                 temp_data_x = self.read_image(image_id)
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_x", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_M.npy"):
+            if not os.path.isfile(cache_path + "_M.npy") and \
+                    os.path.isfile(os.path.join(self.data_path, 'sixteen_band',
+                                                '{}_M.tif'.format(image_id))):
                 print("Caching image {} - M band".format(image_id))
                 temp_data_x = self.read_image(image_id, band="M")
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_M", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_A.npy"):
+            if not os.path.isfile(cache_path + "_A.npy") and \
+                    os.path.isfile(os.path.join(self.data_path, 'sixteen_band',
+                                                '{}_A.tif'.format(image_id))):
                 print("Caching image {} - A band".format(image_id))
                 temp_data_x = self.read_image(image_id, band="A")
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_A", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_y.npy"):
+            if not os.path.isfile(cache_path + "_y.npy") and \
+                    image_id in [self.training_image_ids,
+                                 self.validation_image_ids]:
                 print("Caching ground truth {}".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
@@ -112,10 +115,6 @@ class Generator:
                     temp_data_y[:, :, z] = self.get_ground_truth_array(
                         polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
-
-            if self.cache_in_memory:
-                self.cache_x[image_id] = temp_data_x
-                self.cache_y[image_id] = temp_data_y
 
     def next(self, amount: int = None, data_type: str = 'train'):
         """
@@ -163,18 +162,18 @@ class Generator:
                     "Shape of data does not match shape of ground truth")
 
             # Crop to patch size
-            start_index_width = np.random.randint(0, x_train_temp.shape[
+            start_width = np.random.randint(0, x_train_temp.shape[
                 0] - self.patch_size)
-            start_index_height = np.random.randint(0, x_train_temp.shape[
+            start_height = np.random.randint(0, x_train_temp.shape[
                 1] - self.patch_size)
 
             x_train_temp = x_train_temp[
-                           start_index_width:start_index_width + self.patch_size,
-                           start_index_height:start_index_height + self.patch_size]
+                           start_width:start_width + self.patch_size,
+                           start_height:start_height + self.patch_size]
 
             y_train_temp = y_train_temp[
-                           start_index_width:start_index_width + self.patch_size,
-                           start_index_height:start_index_height + self.patch_size]
+                           start_width:start_width + self.patch_size,
+                           start_height:start_height + self.patch_size]
 
             # Augment
             if self.augment:
@@ -306,13 +305,24 @@ class Generator:
     def get_test_patches(self, image, network_size):
         print('Generating patches for image {}'.format(image))
 
-        x_train = np.load(os.path.join(
-            self.data_path, "cache", "{image_id}_x.npy".format(image_id=image)))
-        y_train = np.load(os.path.join(
-            self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)))
+        cache_path = os.path.join(self.data_path, "cache")
+
+        x_path = os.path.join(cache_path, "{}_x.npy".format(image))
+        if os.path.isfile(x_path):
+            x_train = np.load(
+                os.path.join(cache_path, "{}_x.npy".format(image)))
+        else:
+            raise Exception("No data found for image {}".format(image))
+
+        y_path = os.path.join(cache_path, "{}_y.npy".format(image))
+        if os.path.isfile(y_path):
+            y_train = np.load(y_path)
+        else:
+            y_train = None
+            print("No ground truth for image {}".format(image))
 
         image_width = x_train.shape[0]
-        image_height = y_train.shape[1]
+        image_height = x_train.shape[1]
 
         print('Width: {} - Height: {}'.format(image_width, image_height))
 
@@ -325,22 +335,35 @@ class Generator:
         x_train_pad = np.zeros((new_size, new_size, 3))
         x_train_pad[:x_train.shape[0], :x_train.shape[1], :] = x_train
 
-        y_train_pad = np.zeros((new_size, new_size, 10))
-        y_train_pad[:y_train.shape[0], :y_train.shape[1], :] = y_train
+        if y_train is not None:
+            y_train_pad = np.zeros((new_size, new_size, 10))
+            y_train_pad[:y_train.shape[0], :y_train.shape[1], :] = y_train
 
-        print('Splits: {}'.format(splits*splits))
+        print('Splits: {}'.format(splits * splits))
 
-        x = np.empty((splits*splits, network_size, network_size, 3))
-        y = np.empty((splits*splits, network_size, network_size, 10))
+        x = np.empty((splits * splits, network_size, network_size, 3))
+
+        if y_train is not None:
+            y = np.empty((splits * splits, network_size, network_size, 10))
+        else:
+            y = None
 
         for col in range(splits):
             for row in range(splits):
                 x_start = network_size * col
                 y_start = network_size * row
 
-                x[col*splits+row] = x_train_pad[x_start:x_start + network_size,
-                                       y_start:y_start + network_size]
-                y[col*splits+row] = y_train_pad[x_start:x_start + network_size,
-                                       y_start:y_start + network_size]
+                x[col * splits + row] = x_train_pad[
+                                        x_start:x_start + network_size,
+                                        y_start:y_start + network_size]
+                if y_train is not None:
+                    y[col * splits + row] = y_train_pad[
+                                            x_start:x_start + network_size,
+                                            y_start:y_start + network_size]
 
-        return np.array(x), np.array(y), new_size, splits, image_width, image_height
+        if y is not None:
+            y = np.array(y)
+
+        x = np.array(x)
+
+        return x, y, new_size, splits, image_width, image_height

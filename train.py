@@ -17,7 +17,8 @@ from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL, mask_for_array
 def get_model(algorithm: str, input_size: int, num_classes: int):
     if algorithm == 'fcn_densenet':
         model, model_name = \
-            fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes)
+            fcndensenet.fcndensenet(input_size=input_size,
+                                    num_classes=num_classes)
     elif algorithm == 'tiramisu':
         model, model_name = \
             tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
@@ -42,7 +43,6 @@ def create_directories(run_name: str):
 
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
           num_classes: int = 10, verbose: bool = False):
-
     val_amount = max(batch_size // 10, 1)
 
     generator = Generator(patch_size=input_size,
@@ -67,7 +67,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
     try:
         plot_model(model, os.path.join('images', run_name, 'model.png'))
         plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
-               show_shapes=True)
+                   show_shapes=True)
     except:
         print("Skipping model plot")
 
@@ -120,7 +120,8 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
     for test_image in test_images:
         print('Testing image {}'.format(test_image))
         test_x, test_y, new_size, splits, w, h = \
-            generator.get_test_patches(image=test_image, network_size=input_size)
+            generator.get_test_patches(image=test_image,
+                                       network_size=input_size)
 
         cutoff_array = np.full((len(test_x), input_size, input_size, 1),
                                fill_value=prediction_cutoff)
@@ -128,11 +129,14 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
         test_y_result = model.predict(test_x, batch_size=1, verbose=1)
         test_y_result = np.append(test_y_result, cutoff_array, axis=3)
 
-        out = np.zeros((new_size, new_size, num_classes+1))
+        out = np.zeros((new_size, new_size, num_classes + 1))
 
         for row in range(splits):
             for col in range(splits):
-                out[input_size*row:input_size*(row+1), input_size*col:input_size*(col+1), :] = test_y_result[row*splits+col,:,:,:]
+                out[input_size * row:input_size * (row + 1),
+                input_size * col:input_size * (col + 1), :] = test_y_result[
+                                                              row * splits + col,
+                                                              :, :, :]
 
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
@@ -140,14 +144,22 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
         palette = []
 
         for i in range(num_classes):
-            palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i+1)])))
+            palette.extend(
+                list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i + 1)])))
 
         palette.extend([255, 255, 255])
 
         # for i in range(len(test_x)):
         result_img = Image.fromarray(result, mode='P')
         result_img.putpalette(palette)
-        result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
+        result_img.save(
+            os.path.join(save_folder, '{}_combined.png'.format(test_image)))
+
+        if test_y is not None:
+            result_img = Image.fromarray(test_y, mode='P')
+            result_img.putpalette(palette)
+            result_img.save(os.path.join(save_folder,
+                                         '{}_gt.png'.format(test_image)))
 
     # Plot results
     '''
