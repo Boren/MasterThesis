@@ -2,16 +2,16 @@ import argparse
 import datetime
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import webcolors
 from PIL import Image
-from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.utils import plot_model
+from sklearn.metrics import jaccard_similarity_score
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
-from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL, mask_for_array
+from utils.visualize import COLOR_MAPPING
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
@@ -115,7 +115,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
     create_directories(os.path.splitext(selected_weight)[0])
     save_folder = os.path.join('images', os.path.splitext(selected_weight)[0])
 
-    test_images = ['6140_3_1', '6100_2_3']
+    test_images = ['6140_3_1', '6100_2_3', '6180_4_3']
 
     for test_image in test_images:
         print('Testing image {}'.format(test_image))
@@ -156,10 +156,18 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             os.path.join(save_folder, '{}_combined.png'.format(test_image)))
 
         if test_y is not None:
-            result_img = Image.fromarray(test_y, mode='P')
+            test_y_flat = np.argmax(np.squeeze(test_y), axis=-1).astype(
+                np.uint8)
+
+            result_img = Image.fromarray(test_y_flat, mode='P')
             result_img.putpalette(palette)
             result_img.save(os.path.join(save_folder,
                                          '{}_gt.png'.format(test_image)))
+
+            for cls in range(num_classes):
+                print(jaccard_similarity_score(
+                    [p if p == cls else 0 for p in test_y_flat],
+                    [p if p == cls else 0 for p in result]))
 
     # Plot results
     '''
