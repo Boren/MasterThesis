@@ -7,11 +7,15 @@ import webcolors
 from PIL import Image
 from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.utils import plot_model
-from sklearn.metrics import jaccard_similarity_score
+from sklearn.metrics import jaccard_similarity_score, confusion_matrix
+
+import seaborn as sn
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
-from utils.visualize import COLOR_MAPPING
+from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
@@ -116,6 +120,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
     save_folder = os.path.join('images', os.path.splitext(selected_weight)[0])
 
     test_images = ['6140_3_1', '6100_2_3', '6180_4_3']
+    # test_images = [img for img in generator.all_image_ids if img not in generator.training_image_ids]
 
     for test_image in test_images:
         print('Testing image {}'.format(test_image))
@@ -127,7 +132,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
                                fill_value=prediction_cutoff)
 
         test_y_result = model.predict(test_x, batch_size=1, verbose=1)
-        test_y_result = np.append(test_y_result, cutoff_array, axis=3)
+        test_y_result = np.append(cutoff_array, test_y_result, axis=3)
 
         out = np.zeros((new_size, new_size, num_classes + 1))
 
@@ -138,26 +143,16 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
                                                               row * splits + col,
                                                               :, :, :]
 
-        if test_y is not None:
-            out_test = np.zeros((new_size, new_size, num_classes + 1))
-
-            for row in range(splits):
-                for col in range(splits):
-                    out_test[input_size * row:input_size * (row + 1),
-                    input_size * col:input_size * (col + 1), :] = test_y[
-                                                                  row * splits + col,
-                                                                  :, :, :]
-
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
 
         palette = []
 
+        palette.extend([255, 255, 255])
+
         for i in range(num_classes):
             palette.extend(
                 list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i + 1)])))
-
-        palette.extend([255, 255, 255])
 
         # for i in range(len(test_x)):
         result_img = Image.fromarray(result, mode='P')
@@ -166,19 +161,31 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             os.path.join(save_folder, '{}_combined.png'.format(test_image)))
 
         if test_y is not None:
-            test_y_flat = np.argmax(np.squeeze(test_y), axis=-1).astype(
-                np.uint8)
-
-            result_img = Image.fromarray(test_y_flat, mode='P')
+            y_train = np.load(os.path.join('data/cache/{}_y.npy'.format(test_image)))
+            y_mask = generator.flatten(y_train)
+            result_img = Image.fromarray(y_mask, mode='P')
             result_img.putpalette(palette)
             result_img.save(os.path.join(save_folder,
                                          '{}_gt.png'.format(test_image)))
 
-            for cls in range(num_classes):
-                print(jaccard_similarity_score(
-                    [p if p == cls else 0 for p in test_y_flat],
-                    [p if p == cls else 0 for p in result]))
+            y_mask_flat = y_mask.flatten()
+            result_flat = result.flatten()
 
+            cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
+            cnf_text = [[x if x < 1000 else "" for x in l] for l in cnf_matrix]
+
+            df_cm = pd.DataFrame(cnf_matrix, index = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
+                                      columns = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+            plt.figure(figsize = (10,7))
+            sn.heatmap(df_cm, annot=cnf_text)
+            plt.savefig("test.png")
+
+            for cls in range(num_classes):
+                cls = cls+1
+                score = jaccard_similarity_score(
+                    [p if p == cls else 0 for p in y_mask_flat],
+                    [p if p == cls else 0 for p in result_flat])
+                print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
     # Plot results
     '''
     print("Plotting results...")
@@ -213,7 +220,6 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
         plt.suptitle('{}'.format(algorithm))
         plt.savefig(os.path.join(save_folder, '{}.png'.format(test_image)))
     '''
-
 
 def main():
     parser = argparse.ArgumentParser()

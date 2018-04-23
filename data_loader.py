@@ -12,6 +12,8 @@ import tifffile
 from numpy.lib.stride_tricks import as_strided
 from shapely.geometry import MultiPolygon
 
+from utils.visualize import ZORDER
+
 csv.field_size_limit(2 ** 24)
 
 
@@ -299,6 +301,23 @@ class Generator:
                      poly.interiors]
 
         cv2.fillPoly(img_mask, interiors, 0)
+
+        return img_mask
+
+    @staticmethod
+    def flatten(arr):
+        # 11 class background
+        img_mask = np.full((arr.shape[0], arr.shape[1]), 0, np.uint8)
+
+        # Sort polygons by Z-order
+        for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
+            mask = arr[:, :, cls-1].astype('uint8')
+            mask = mask * cls
+
+            # Create a mask to only copy pixels which are in this class
+            m = np.ma.masked_where(mask > 0, mask).mask
+
+            np.copyto(img_mask, mask, where=m)
 
         return img_mask
 
