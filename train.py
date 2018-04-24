@@ -172,12 +172,12 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             result_flat = result.flatten()
 
             cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
-            cnf_text = [[x if x < 1000 else "" for x in l] for l in cnf_matrix]
+            cnf_text = np.array([[x if x < 1000 else "" for x in l] for l in cnf_matrix])
 
             df_cm = pd.DataFrame(cnf_matrix, index = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
                                       columns = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
             plt.figure(figsize = (10,7))
-            sn.heatmap(df_cm, annot=cnf_text)
+            sn.heatmap(df_cm, annot=cnf_text, fmt="s")
             plt.savefig("test.png")
 
             for cls in range(num_classes):
