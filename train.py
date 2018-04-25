@@ -12,6 +12,7 @@ from sklearn.metrics import jaccard_similarity_score, confusion_matrix
 import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
+from tensorflow.python.ops.metrics_impl import mean_iou
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
@@ -172,20 +173,22 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             result_flat = result.flatten()
 
             cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
-            cnf_text = np.array([[x if x < 1000 else "" for x in l] for l in cnf_matrix])
+            cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
 
-            df_cm = pd.DataFrame(cnf_matrix, index = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
-                                      columns = [i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
-            plt.figure(figsize = (10,7))
+            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
+                                      columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+            plt.figure(figsize=(10, 7))
             sn.heatmap(df_cm, annot=cnf_text, fmt="s")
-            plt.savefig("test.png")
+            plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
 
-            for cls in range(num_classes):
-                cls = cls+1
-                score = jaccard_similarity_score(
-                    [p if p == cls else 0 for p in y_mask_flat],
-                    [p if p == cls else 0 for p in result_flat])
-                print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
+            print('Mean IoU: {}'.format(mean_iou(y_mask_flat, result_flat)))
+
+            # for cls in range(num_classes):
+            #     cls = cls+1
+            #     score = jaccard_similarity_score(
+            #         [p if p == cls else 0 for p in y_mask_flat],
+            #         [p if p == cls else 0 for p in result_flat])
+            #     print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
     # Plot results
     '''
     print("Plotting results...")
