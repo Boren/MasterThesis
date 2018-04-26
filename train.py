@@ -7,16 +7,16 @@ import webcolors
 from PIL import Image
 from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.utils import plot_model
-from sklearn.metrics import jaccard_similarity_score, confusion_matrix
+from sklearn.metrics import confusion_matrix
 
 import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
-from tensorflow.python.ops.metrics_impl import mean_iou
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
+from utils.metrics import iou
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
@@ -181,7 +181,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             sn.heatmap(df_cm, annot=cnf_text, fmt="s")
             plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
 
-            print('Mean IoU: {}'.format(mean_iou(y_mask_flat, result_flat)))
+            print('Mean IoU: {}'.format(iou(y_mask_flat, result_flat)))
 
             # for cls in range(num_classes):
             #     cls = cls+1
