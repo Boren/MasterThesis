@@ -8,8 +8,9 @@ opencv-python
 pandas
 pydot
 requests
+seaborn
+scikit-learn
 shapely
-tensorflow==1.*
 tifffile==0.13.*
 tqdm
 webcolors
