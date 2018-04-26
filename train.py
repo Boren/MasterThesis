@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
-from utils.metrics import iou
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int):
