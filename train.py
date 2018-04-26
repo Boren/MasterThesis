@@ -47,7 +47,7 @@ def create_directories(run_name: str):
 
 
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
-          num_classes: int = 10, verbose: bool = False):
+          num_classes: int = 8, verbose: bool = False):
     val_amount = max(batch_size // 10, 1)
 
     generator = Generator(patch_size=input_size,
@@ -95,7 +95,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
                         validation_data=(val_x, val_y))
 
 
-def test(algorithm: str, input_size: int, num_classes: int = 10,
+def test(algorithm: str, input_size: int, num_classes: int = 8,
          verbose: bool = False, prediction_cutoff: float = 0.5):
     generator = Generator(patch_size=input_size)
 
@@ -172,23 +172,37 @@ def test(algorithm: str, input_size: int, num_classes: int = 10,
             y_mask_flat = y_mask.flatten()
             result_flat = result.flatten()
 
-            cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
-            cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
+            #cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
+            #cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
 
-            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
-                                      columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(df_cm, annot=cnf_text, fmt="s")
-            plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
+            #df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
+            #                          columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+            #plt.figure(figsize=(10, 7))
+            #sn.heatmap(df_cm, annot=cnf_text, fmt="s")
+            #plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
 
-            print('Mean IoU: {}'.format(iou(y_mask_flat, result_flat)))
+            mean_iou = []
 
-            # for cls in range(num_classes):
-            #     cls = cls+1
-            #     score = jaccard_similarity_score(
-            #         [p if p == cls else 0 for p in y_mask_flat],
-            #         [p if p == cls else 0 for p in result_flat])
-            #     print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
+            for cls in range(num_classes):
+                cls = cls+1
+
+                y_true_cls = np.array([1 if pix == cls else 0 for pix in y_mask_flat])
+                y_pred_cls = np.array([1 if pix == cls else 0 for pix in result_flat])
+
+                TP = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
+                TN = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
+                FP = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
+                FN = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
+
+                print("TP {} - FP {} - TN {} - FN {}".format(TP, FP, TN, FN))
+
+                score = TP / (FP + FN + TP + 0.0001)
+
+                print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
+
+                mean_iou.append(score)
+
+            print('Mean IoU: {}'.format(np.mean(mean_iou)))
     # Plot results
     '''
     print("Plotting results...")
@@ -254,7 +268,7 @@ def main():
     batch_size = args.batch
     verbose = args.verbose
 
-    num_classes = 10
+    num_classes = 8
 
     if args.test:
         test(algorithm, input_size, num_classes, verbose)

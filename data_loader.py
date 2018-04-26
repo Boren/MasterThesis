@@ -35,11 +35,13 @@ class Generator:
     """
 
     def __init__(self, data_path: str = "data", batch_size: int = 10,
-                 patch_size: int = 572, augment: bool = True):
+                 patch_size: int = 572, augment: bool = True, classes = range(8)):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
+
+        self.classes = classes
 
         self.cache_x = dict()
         self.cache_y = dict()
@@ -101,8 +103,7 @@ class Generator:
                 np.save(cache_path + "_A", temp_data_x)
 
             if not os.path.isfile(cache_path + "_y.npy") and \
-                    image_id in [self.training_image_ids,
-                                 self.validation_image_ids]:
+                    image_id in self.training_image_ids + self.validation_image_ids:
                 print("Caching ground truth {}".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
@@ -118,7 +119,8 @@ class Generator:
                         polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
 
-    def next(self, amount: int = None, data_type: str = 'train'):
+    def next(self, amount: int = None, data_type: str = 'train',
+             classes=range(8)):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -131,14 +133,9 @@ class Generator:
 
         # Extract a random subset of images from training pool (batch size)
         if data_type == 'train':
-            image_ids = np.random.choice(self.training_image_ids,
-                                         amount, True)
+            image_ids = np.random.choice(self.training_image_ids, amount, True)
         elif data_type == 'validation':
-            image_ids = np.random.choice(self.validation_image_ids,
-                                         amount, True)
-        elif data_type == 'test':
-            image_ids = np.random.choice(self.test_image_ids,
-                                         amount, True)
+            image_ids = np.random.choice(self.validation_image_ids, amount, True)
         else:
             raise Exception("Not a valid dataset")
 
@@ -146,18 +143,14 @@ class Generator:
         y_train_batch = []
 
         for image_id in image_ids:
-            if self.cache_in_memory:
-                x_train_temp = self.cache_x[image_id]
-                y_train_temp = self.cache_y[image_id]
-            else:
-                x_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "{}_x.npy".format(
-                                                        image_id)),
-                                       mmap_mode='r+')
-                y_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                    "{}_y.npy".format(
-                                                        image_id)),
-                                       mmap_mode='r+')
+            x_train_temp = np.load(os.path.join(self.data_path, "cache",
+                                                "{}_x.npy".format(
+                                                    image_id)),
+                                   mmap_mode='r+')
+            y_train_temp = np.load(os.path.join(self.data_path, "cache",
+                                                "{}_y.npy".format(
+                                                    image_id)),
+                                   mmap_mode='r+')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
                 raise Exception(
@@ -197,7 +190,7 @@ class Generator:
             x_train_batch.append(x_train_temp)
             y_train_batch.append(y_train_temp)
 
-        return np.array(x_train_batch), np.array(y_train_batch)
+        return np.array(x_train_batch), np.array(y_train_batch)[:,:,:,classes]
 
     def get_patch(self, image: str, x: int, y: int, width: int, height: int):
         x_train = np.load(os.path.join(self.data_path, "cache",
@@ -304,13 +297,15 @@ class Generator:
 
         return img_mask
 
-    @staticmethod
-    def flatten(arr):
+    def flatten(self, arr):
         # 11 class background
         img_mask = np.full((arr.shape[0], arr.shape[1]), 0, np.uint8)
 
         # Sort polygons by Z-order
         for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
+            if cls-1 not in self.classes:
+                continue
+
             mask = arr[:, :, cls-1].astype('uint8')
             mask = mask * cls
 
