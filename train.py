@@ -237,6 +237,11 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
         plt.savefig(os.path.join(save_folder, '{}.png'.format(test_image)))
     '''
 
+
+def print_options(args):
+    pass
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -268,6 +273,8 @@ def main():
     verbose = args.verbose
 
     num_classes = 8
+
+    print_options(args)
 
     if args.test:
         test(algorithm, input_size, num_classes, verbose)
