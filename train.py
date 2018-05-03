@@ -18,20 +18,15 @@ from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 
 
-def get_model(algorithm: str, input_size: int, num_classes: int):
+def get_model(algorithm: str, input_size: int, num_classes: int, channels: int = 3):
     if algorithm == 'fcn_densenet':
-        model, model_name = \
-            fcndensenet.fcndensenet(input_size=input_size,
-                                    num_classes=num_classes)
+        model, model_name = fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes, channels=channels)
     elif algorithm == 'tiramisu':
-        model, model_name = \
-            tiramisu.tiramisu(input_size=input_size, num_classes=num_classes)
+        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes, channels=channels)
     elif algorithm == 'unet':
-        model, model_name = \
-            unet.unet(input_size=input_size, num_classes=num_classes)
+        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes, channels=channels)
     elif algorithm == 'pspnet':
-        model, model_name = \
-            pspnet.pspnet(input_size=input_size, num_classes=num_classes)
+        model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes, channels=channels)
     else:
         raise Exception('{} is an invalid algorithm'.format(algorithm))
 
@@ -46,13 +41,14 @@ def create_directories(run_name: str):
 
 
 def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
-          num_classes: int = 8, verbose: bool = False):
+          num_classes: int = 8, verbose: bool = False, channels: int = 3):
     val_amount = max(batch_size // 10, 1)
 
     generator = Generator(patch_size=input_size,
-                          batch_size=batch_size)
+                          batch_size=batch_size,
+                          channels=channels)
 
-    model, model_name = get_model(algorithm, input_size, num_classes)
+    model, model_name = get_model(algorithm, input_size, num_classes, channels)
 
     timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
     run_name = "{}_{}".format(model_name, timenow)
@@ -95,8 +91,8 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
 
 
 def test(algorithm: str, input_size: int, num_classes: int = 8,
-         verbose: bool = False, prediction_cutoff: float = 0.5):
-    generator = Generator(patch_size=input_size)
+         verbose: bool = False, prediction_cutoff: float = 0.5, channels: int = 3):
+    generator = Generator(patch_size=input_size, channels=channels)
 
     model, model_name = get_model(algorithm, input_size, num_classes)
 
@@ -257,6 +253,9 @@ def main():
     parser.add_argument("--batch", default=100, type=int,
                         help="How many samples in a batch")
 
+    parser.add_argument("--channels", default=3, type=int,
+                        help="How many channels. [3, 8, 16]")
+
     parser.add_argument("--test", dest='test', action='store_true',
                         help="Run a test")
 
@@ -273,13 +272,14 @@ def main():
     verbose = args.verbose
 
     num_classes = 8
+    channels = args.channels
 
     print_options(args)
 
     if args.test:
-        test(algorithm, input_size, num_classes, verbose)
+        test(algorithm, input_size, num_classes, verbose, channels=channels)
     else:
-        train(algorithm, input_size, epochs, batch_size, num_classes, verbose)
+        train(algorithm, input_size, epochs, batch_size, num_classes, verbose, channels)
 
 
 if __name__ == "__main__":

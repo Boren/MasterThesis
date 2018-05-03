@@ -6,10 +6,12 @@ from typing import Tuple, Dict
 import cv2
 import numpy as np
 import pandas as pd
+import scipy
 import shapely.affinity
 import shapely.wkt
 import tifffile
 from numpy.lib.stride_tricks import as_strided
+from skimage.transform import rescale
 from shapely.geometry import MultiPolygon
 
 from utils.visualize import ZORDER
@@ -35,13 +37,15 @@ class Generator:
     """
 
     def __init__(self, data_path: str = "data", batch_size: int = 10,
-                 patch_size: int = 572, augment: bool = True, classes = range(8)):
+                 patch_size: int = 572, augment: bool = True,
+                 classes = range(8), channels=3):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
         self.patch_size = patch_size
 
         self.classes = classes
+        self.channels = channels
 
         self.cache_x = dict()
         self.cache_y = dict()
@@ -75,35 +79,40 @@ class Generator:
             img_width = None
             img_height = None
 
-            if not os.path.isfile(cache_path + "_x.npy") and \
-                    os.path.isfile(os.path.join(self.data_path, 'three_band',
-                                                '{}.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_x.npy") and os.path.isfile(os.path.join(self.data_path, 'three_band', '{}.tif'.format(image_id))):
                 print("Caching image {}".format(image_id))
                 temp_data_x = self.read_image(image_id)
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_x", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_M.npy") and \
-                    os.path.isfile(os.path.join(self.data_path, 'sixteen_band',
-                                                '{}_M.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_M.npy") and os.path.isfile(os.path.join(self.data_path, 'sixteen_band', '{}_M.tif'.format(image_id))):
                 print("Caching image {} - M band".format(image_id))
+
+                # In case image is not loaded we have to load to get dimensions
+                if img_width is None:
+                    temp_image = self.read_image(image_id)
+                    img_width = temp_image.shape[0]
+                    img_height = temp_image.shape[1]
+
                 temp_data_x = self.read_image(image_id, band="M")
-                img_width = temp_data_x.shape[0]
-                img_height = temp_data_x.shape[1]
+                temp_data_x = self.reshape(temp_data_x, (img_width, img_height))
                 np.save(cache_path + "_M", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_A.npy") and \
-                    os.path.isfile(os.path.join(self.data_path, 'sixteen_band',
-                                                '{}_A.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_A.npy") and os.path.isfile(os.path.join(self.data_path, 'sixteen_band', '{}_A.tif'.format(image_id))):
                 print("Caching image {} - A band".format(image_id))
+
+                # In case image is not loaded we have to load to get dimensions
+                if img_width is None:
+                    temp_image = self.read_image(image_id)
+                    img_width = temp_image.shape[0]
+                    img_height = temp_image.shape[1]
+
                 temp_data_x = self.read_image(image_id, band="A")
-                img_width = temp_data_x.shape[0]
-                img_height = temp_data_x.shape[1]
+                temp_data_x = self.reshape(temp_data_x, (img_width, img_height))
                 np.save(cache_path + "_A", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_y.npy") and \
-                    image_id in self.training_image_ids + self.validation_image_ids:
+            if not os.path.isfile(cache_path + "_y.npy") and image_id in self.training_image_ids + self.validation_image_ids:
                 print("Caching ground truth {}".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
@@ -115,8 +124,7 @@ class Generator:
                 temp_data_y = np.zeros((img_width, img_height, 10))
                 polygons = self.get_ground_truth_polys(image_id)
                 for z in range(10):
-                    temp_data_y[:, :, z] = self.get_ground_truth_array(
-                        polygons, z + 1, (img_width, img_height))
+                    temp_data_y[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
 
     def next(self, amount: int = None, data_type: str = 'train',
@@ -143,24 +151,25 @@ class Generator:
         y_train_batch = []
 
         for image_id in image_ids:
-            x_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                "{}_x.npy".format(
-                                                    image_id)),
-                                   mmap_mode='r+')
-            y_train_temp = np.load(os.path.join(self.data_path, "cache",
-                                                "{}_y.npy".format(
-                                                    image_id)),
-                                   mmap_mode='r+')
+            if self.channels == 3:
+                x_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_x.npy".format(image_id)), mmap_mode='r+')
+            elif self.channels == 8:
+                x_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image_id)), mmap_mode='r+')
+            elif self.channels == 16:
+                x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image_id)), mmap_mode='r+')
+                x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image_id)), mmap_mode='r+')
+                x_train_temp = np.concatenate((x_train_M, x_train_A), axis=2)
+            else:
+                raise Exception("Wrong number of channels")
+
+            y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
-                raise Exception(
-                    "Shape of data does not match shape of ground truth")
+                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
 
             # Crop to patch size
-            start_width = np.random.randint(0, x_train_temp.shape[
-                0] - self.patch_size)
-            start_height = np.random.randint(0, x_train_temp.shape[
-                1] - self.patch_size)
+            start_width = np.random.randint(0, x_train_temp.shape[0] - self.patch_size)
+            start_height = np.random.randint(0, x_train_temp.shape[1] - self.patch_size)
 
             x_train_temp = x_train_temp[
                            start_width:start_width + self.patch_size,
@@ -192,13 +201,31 @@ class Generator:
 
         return np.array(x_train_batch), np.array(y_train_batch)[:,:,:,classes]
 
-    def get_patch(self, image: str, x: int, y: int, width: int, height: int):
-        x_train = np.load(os.path.join(self.data_path, "cache",
-                                       "{image_id}_x.npy".format(
-                                           image_id=image)))
-        y_train = np.load(os.path.join(self.data_path, "cache",
-                                       "{image_id}_y.npy".format(
-                                           image_id=image)))
+    @staticmethod
+    def reshape(arr, shape):
+        scaled = np.empty((shape[0], shape[1], arr.shape[2]))
+
+        for i in range(arr.shape[2]):
+            img = arr[:, :, i]
+            scale = scipy.misc.imresize(img, shape)
+            scaled[:, :, i] = scale
+
+        return scaled
+
+
+    def get_patch(self, image: str, x: int, y: int, width: int, height: int, channels: int = 3):
+        if self.channels == 3:
+            x_train = np.load(os.path.join(self.data_path, "cache", "{}_x.npy".format(image)), mmap_mode='r+')
+        elif self.channels == 8:
+            x_train = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
+        elif self.channels == 16:
+            x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
+            x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r+')
+            x_train = np.concatenate((x_train_M, x_train_A), axis=2)
+        else:
+            raise Exception("Wrong number of channels")
+
+        y_train = np.load(os.path.join(self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)))
 
         x_train = x_train[x:x + width, y:y + height]
         y_train = y_train[x:x + width, y:y + height]
