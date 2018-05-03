@@ -22,6 +22,7 @@ REQUIRED = [
     'pydot',
     'requests',
     'seaborn',
+    'scikit-image',
     'scikit-learn',
     'shapely',
     'tifffile==0.13.*',

@@ -71,7 +71,7 @@ def unet(input_size: int, num_classes: int, channels: int = 3) ->\
 
     model = Model(inputs=inputs, outputs=conv10)
     model.compile(optimizer=Adam(),
-                  loss=jaccard_distance,
+                  loss='binary_crossentropy',
                   metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, 'unet'
