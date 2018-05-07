@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 
+from termcolor import colored
 import numpy as np
 import webcolors
 from PIL import Image
@@ -40,18 +41,18 @@ def create_directories(run_name: str):
     os.makedirs('tensorboard_log', exist_ok=True)
 
 
-def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
-          num_classes: int = 8, verbose: bool = False, channels: int = 3):
+def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_classes: int = 8, verbose: bool = False, channels: int = 3, run_name: str = None):
     val_amount = max(batch_size // 10, 1)
 
-    generator = Generator(patch_size=input_size,
-                          batch_size=batch_size,
-                          channels=channels)
+    generator = Generator(patch_size=input_size, batch_size=batch_size, channels=channels)
 
     model, model_name = get_model(algorithm, input_size, num_classes, channels)
 
-    timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-    run_name = "{}_{}".format(model_name, timenow)
+    if run_name:
+        run_name = "{}_{}".format(model_name, run_name)
+    else:
+        timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+        run_name = "{}_{}".format(model_name, timenow)
     create_directories(run_name)
 
     # TODO: Update with ability to choose weights
@@ -90,8 +91,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int,
                         validation_data=(val_x, val_y))
 
 
-def test(algorithm: str, input_size: int, num_classes: int = 8,
-         verbose: bool = False, prediction_cutoff: float = 0.5, channels: int = 3):
+def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = False, prediction_cutoff: float = 0.5, channels: int = 3):
     generator = Generator(patch_size=input_size, channels=channels)
 
     model, model_name = get_model(algorithm, input_size, num_classes, channels)
@@ -120,12 +120,9 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
 
     for test_image in test_images:
         print('Testing image {}'.format(test_image))
-        test_x, test_y, new_size, splits, w, h = \
-            generator.get_test_patches(image=test_image,
-                                       network_size=input_size)
+        test_x, test_y, new_size, splits, w, h = generator.get_test_patches(image=test_image, network_size=input_size)
 
-        cutoff_array = np.full((len(test_x), input_size, input_size, 1),
-                               fill_value=prediction_cutoff)
+        cutoff_array = np.full((len(test_x), input_size, input_size, 1), fill_value=prediction_cutoff)
 
         test_y_result = model.predict(test_x, batch_size=1, verbose=1)
         test_y_result = np.append(cutoff_array, test_y_result, axis=3)
@@ -134,10 +131,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
 
         for row in range(splits):
             for col in range(splits):
-                out[input_size * row:input_size * (row + 1),
-                input_size * col:input_size * (col + 1), :] = test_y_result[
-                                                              row * splits + col,
-                                                              :, :, :]
+                out[input_size * row:input_size * (row + 1), input_size * col:input_size * (col + 1), :] = test_y_result[row * splits + col, :, :, :]
 
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
@@ -147,22 +141,19 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
         palette.extend([255, 255, 255])
 
         for i in range(num_classes):
-            palette.extend(
-                list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i + 1)])))
+            palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i + 1)])))
 
         # for i in range(len(test_x)):
         result_img = Image.fromarray(result, mode='P')
         result_img.putpalette(palette)
-        result_img.save(
-            os.path.join(save_folder, '{}_combined.png'.format(test_image)))
+        result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
 
         if test_y is not None:
             y_train = np.load(os.path.join('data/cache/{}_y.npy'.format(test_image)))
             y_mask = generator.flatten(y_train)
             result_img = Image.fromarray(y_mask, mode='P')
             result_img.putpalette(palette)
-            result_img.save(os.path.join(save_folder,
-                                         '{}_gt.png'.format(test_image)))
+            result_img.save(os.path.join(save_folder, '{}_gt.png'.format(test_image)))
 
             y_mask_flat = y_mask.flatten()
             result_flat = result.flatten()
@@ -235,7 +226,18 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
 
 
 def print_options(args):
-    pass
+    if args.test:
+        run_type = colored('TEST', 'red')
+    else:
+        run_type = colored('TRAINING', 'red')
+
+    print("Starting {} run with following options:".format(run_type))
+
+    print("- Algorithm: {}".format(colored(args.algorithm, 'green')))
+    print("- Patch size: {}".format(colored(args.size, 'green')))
+    print("- Epochs: {}".format(colored(args.epochs, 'green')))
+    print("- Batch size: {}".format(colored(args.batch, 'green')))
+    print("- Channels: {}".format(colored(args.channels, 'green')))
 
 
 def main():
@@ -262,6 +264,9 @@ def main():
     parser.add_argument("--verbose", dest='verbose', action='store_true',
                         help="Show additional debug information")
 
+    parser.add_argument("--name", default=None, type=str,
+                        help="Give the run a name")
+
     parser.set_defaults(test=False, verbose=False)
     args = parser.parse_args()
 
@@ -270,6 +275,7 @@ def main():
     epochs = args.epochs
     batch_size = args.batch
     verbose = args.verbose
+    run_name = args.name
 
     num_classes = 8
     channels = args.channels
@@ -279,7 +285,7 @@ def main():
     if args.test:
         test(algorithm, input_size, num_classes, verbose, channels=channels)
     else:
-        train(algorithm, input_size, epochs, batch_size, num_classes, verbose, channels)
+        train(algorithm, input_size, epochs, batch_size, num_classes, verbose, channels, run_name)
 
 
 if __name__ == "__main__":

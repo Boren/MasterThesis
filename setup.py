@@ -25,6 +25,7 @@ REQUIRED = [
     'scikit-image',
     'scikit-learn',
     'shapely',
+    'termcolor',
     'tifffile==0.13.*',
     'tqdm',
     'webcolors'
