@@ -74,7 +74,7 @@ class Generator:
         if not os.path.isdir(cache_folder):
             os.makedirs(cache_folder)
 
-        for image_id in self.all_image_ids:
+        for image_id in self.training_image_ids + self.validation_image_ids:
             cache_path = os.path.join(cache_folder, "{}".format(image_id))
             img_width = None
             img_height = None
@@ -348,12 +348,24 @@ class Generator:
 
         cache_path = os.path.join(self.data_path, "cache")
 
-        x_path = os.path.join(cache_path, "{}_x.npy".format(image))
-        if os.path.isfile(x_path):
-            x_train = np.load(
-                os.path.join(cache_path, "{}_x.npy".format(image)))
+        if self.channels == 3:
+            x_path = os.path.join(cache_path, "{}_x.npy".format(image))
+            if os.path.isfile(x_path):
+                x_train = np.load(os.path.join(cache_path, "{}_x.npy".format(image)))
+            else:
+                raise Exception("No data found for image {}".format(image))
+        elif self.channels == 8:
+            x_path = os.path.join(cache_path, "{}_A.npy".format(image))
+            if os.path.isfile(x_path):
+                x_train = np.load(os.path.join(cache_path, "{}_A.npy".format(image)))
+            else:
+                raise Exception("No data found for image {}".format(image))
+        elif self.channels == 16:
+            x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
+            x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r+')
+            x_train = np.concatenate((x_train_M, x_train_A), axis=2)
         else:
-            raise Exception("No data found for image {}".format(image))
+            raise Exception("Invalid number of channels")
 
         y_path = os.path.join(cache_path, "{}_y.npy".format(image))
         if os.path.isfile(y_path):
@@ -373,7 +385,7 @@ class Generator:
 
         new_size = splits * network_size
 
-        x_train_pad = np.zeros((new_size, new_size, 3))
+        x_train_pad = np.zeros((new_size, new_size, self.channels))
         x_train_pad[:x_train.shape[0], :x_train.shape[1], :] = x_train
 
         if y_train is not None:
@@ -382,7 +394,7 @@ class Generator:
 
         print('Splits: {}'.format(splits * splits))
 
-        x = np.empty((splits * splits, network_size, network_size, 3))
+        x = np.empty((splits * splits, network_size, network_size, self.channels))
 
         if y_train is not None:
             y = np.empty((splits * splits, network_size, network_size, 10))

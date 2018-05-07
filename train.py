@@ -94,7 +94,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 8,
          verbose: bool = False, prediction_cutoff: float = 0.5, channels: int = 3):
     generator = Generator(patch_size=input_size, channels=channels)
 
-    model, model_name = get_model(algorithm, input_size, num_classes)
+    model, model_name = get_model(algorithm, input_size, num_classes, channels)
 
     weight_files = [filename for filename in os.listdir('weights')
                     if filename.startswith(model_name)]
