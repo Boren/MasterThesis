@@ -1,7 +1,6 @@
 import csv
 import os
-import random
-from typing import Tuple, Dict
+from typing import Tuple, Dict, IO
 
 import cv2
 import numpy as np
@@ -10,8 +9,6 @@ import scipy
 import shapely.affinity
 import shapely.wkt
 import tifffile
-from numpy.lib.stride_tricks import as_strided
-from skimage.transform import rescale
 from shapely.geometry import MultiPolygon
 
 from utils.visualize import ZORDER
@@ -19,12 +16,16 @@ from utils.visualize import ZORDER
 csv.field_size_limit(2 ** 24)
 
 
-def scale_image_percentile(matrix):
+def scale_image_percentile(matrix, lower_percentile=1, higher_percentile=99):
+    """
+    Remove outliers from data
+    """
     w, h, d = matrix.shape
     matrix = np.reshape(matrix, [w * h, d]).astype(np.float64)
-    # Get 2nd and 98th percentile
-    mins = np.percentile(matrix, 1, axis=0)
-    maxs = np.percentile(matrix, 99, axis=0) - mins
+
+    mins = np.percentile(matrix, lower_percentile, axis=0)
+    maxs = np.percentile(matrix, higher_percentile, axis=0) - mins
+
     matrix = (matrix - mins[None, :]) / maxs[None, :]
     matrix = np.reshape(matrix, [w, h, d])
     matrix = matrix.clip(0, 1)
@@ -33,12 +34,10 @@ def scale_image_percentile(matrix):
 
 class Generator:
     """
-    Class responsible for generating batches of data to train on
+    Class responsible for generating batches of data to train and test on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10,
-                 patch_size: int = 572, augment: bool = True,
-                 classes = range(8), channels=3):
+    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8), channels=3):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
@@ -46,6 +45,7 @@ class Generator:
 
         self.classes = classes
         self.channels = channels
+        self.num_classes = len(classes)
 
         self.cache_x = dict()
         self.cache_y = dict()
@@ -56,14 +56,12 @@ class Generator:
         self.training_image_ids = self.get_image_ids('train')
         self.validation_image_ids = self.get_image_ids('validation')
 
-        self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(
-            os.path.join(self.data_path, 'three_band'))]
+        self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.data_path, 'three_band'))]
         self.preprocess()
 
     def get_image_ids(self, type: str):
         folder = os.path.join(self.data_path, '{}_geojson'.format(type))
-        return [f for f in os.listdir(folder)
-                if os.path.isdir(os.path.join(folder, f))]
+        return [f for f in os.listdir(folder) if os.path.isdir(os.path.join(folder, f))]
 
     def preprocess(self):
         """
@@ -171,35 +169,36 @@ class Generator:
             start_width = np.random.randint(0, x_train_temp.shape[0] - self.patch_size)
             start_height = np.random.randint(0, x_train_temp.shape[1] - self.patch_size)
 
-            x_train_temp = x_train_temp[
-                           start_width:start_width + self.patch_size,
-                           start_height:start_height + self.patch_size]
-
-            y_train_temp = y_train_temp[
-                           start_width:start_width + self.patch_size,
-                           start_height:start_height + self.patch_size]
+            x_train_temp = x_train_temp[start_width:start_width + self.patch_size, start_height:start_height + self.patch_size]
+            y_train_temp = y_train_temp[start_width:start_width + self.patch_size, start_height:start_height + self.patch_size]
 
             # Augment
             if self.augment:
-                # Rotate either 0, 90, 180 or 270 degrees
-                num_rotations = np.random.randint(4)
-                x_train_temp = np.rot90(x_train_temp, num_rotations)
-                y_train_temp = np.rot90(y_train_temp, num_rotations)
-
-                # Flip horizontal
-                if np.random.choice([True, False]):
-                    x_train_temp = np.fliplr(x_train_temp)
-                    y_train_temp = np.fliplr(y_train_temp)
-
-                # Flip vertical
-                if np.random.choice([True, False]):
-                    x_train_temp = np.flipud(x_train_temp)
-                    y_train_temp = np.flipud(y_train_temp)
+                x_train_temp, y_train_temp = self.augment_data(x_train_temp, y_train_temp)
 
             x_train_batch.append(x_train_temp)
             y_train_batch.append(y_train_temp)
 
-        return np.array(x_train_batch), np.array(y_train_batch)[:,:,:,classes]
+        return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
+
+    @staticmethod
+    def augment_data(x, y):
+        # Rotate either 0, 90, 180 or 270 degrees
+        num_rotations = np.random.randint(4)
+        x = np.rot90(x, num_rotations)
+        y = np.rot90(y, num_rotations)
+
+        # Flip horizontal
+        if np.random.choice([True, False]):
+            x = np.fliplr(x)
+            y = np.fliplr(y)
+
+        # Flip vertical
+        if np.random.choice([True, False]):
+            x = np.flipud(x)
+            y = np.flipud(y)
+
+        return x, y
 
     @staticmethod
     def reshape(arr, shape):
@@ -212,8 +211,10 @@ class Generator:
 
         return scaled
 
-
-    def get_patch(self, image: str, x: int, y: int, width: int, height: int, channels: int = 3):
+    def get_patch(self, image: str, x: int, y: int, width: int, height: int):
+        """
+        Get a patch of size width*height starting at x, y from image
+        """
         if self.channels == 3:
             x_train = np.load(os.path.join(self.data_path, "cache", "{}_x.npy".format(image)), mmap_mode='r+')
         elif self.channels == 8:
@@ -221,7 +222,10 @@ class Generator:
         elif self.channels == 16:
             x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
             x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r+')
+            print("M Shape: {}".format(x_train_M.shape))
+            print("A Shape: {}".format(x_train_A.shape))
             x_train = np.concatenate((x_train_M, x_train_A), axis=2)
+            print("Concat Shape: {}".format(x_train.shape))
         else:
             raise Exception("Wrong number of channels")
 
@@ -261,10 +265,9 @@ class Generator:
             image_data = scale_image_percentile(raw_data)
             return image_data
         else:
-            raise Exception("Band not implemented")
+            raise Exception("Unknown band {}".format(band))
 
-    def scale_coords(self, img_size: Tuple[int, int], image_number: str) -> \
-            Tuple[float, float]:
+    def scale_coords(self, img_size: Tuple[int, int], image_number: str) -> Tuple[float, float]:
         """
         Get a scaling factor needed to scale polygons to same size as image
         """
@@ -274,15 +277,13 @@ class Generator:
         h_ = h * (h / (h + 1))
         return w_ / x_max, h_ / y_min
 
-    def get_ground_truth_polys(self, image_number: str) -> \
-            Dict[str, MultiPolygon]:
+    def get_ground_truth_polys(self, image_number: str) -> Dict[str, MultiPolygon]:
         """
         Get a list of polygons sorted by class for the selected image.
         Scaled to match image.
         """
         train_polygons = dict()
-        for _im_id, _poly_type, _poly in csv.reader(
-                open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
+        for _im_id, _poly_type, _poly in csv.reader(open(os.path.join(self.data_path, 'train_wkt_v4.csv'))):
             if _im_id == image_number:
                 train_polygons[_poly_type] = shapely.wkt.loads(_poly)
 
@@ -291,17 +292,12 @@ class Generator:
 
         train_polygons_scaled = dict()
         for key, train_polygon in train_polygons.items():
-            train_polygons_scaled[key] = \
-                shapely.affinity.scale(train_polygon,
-                                       xfact=x_scale,
-                                       yfact=y_scale,
-                                       origin=(0, 0, 0))
+            train_polygons_scaled[key] = shapely.affinity.scale(train_polygon, xfact=x_scale, yfact=y_scale, origin=(0, 0, 0))
 
         return train_polygons_scaled
 
     @staticmethod
-    def get_ground_truth_array(polygons, class_number: int,
-                               image_size: Tuple[int, int]):
+    def get_ground_truth_array(polygons, class_number: int, image_size: Tuple[int, int]):
         """
         Creates a array containing class for each pixel
         """
@@ -310,16 +306,11 @@ class Generator:
         # White background
         img_mask = np.full((w, h), 0, np.uint8)
 
-        exteriors = [np.array(poly.exterior.coords).round().astype(np.int32)
-                     for poly in polygons[str(class_number)]]
-
+        exteriors = [np.array(poly.exterior.coords).round().astype(np.int32) for poly in polygons[str(class_number)]]
         cv2.fillPoly(img_mask, exteriors, 1)
 
         # Some polygons have regions inside them which need to be excluded
-        interiors = [np.array(pi.coords).round().astype(np.int32)
-                     for poly in polygons[str(class_number)] for pi in
-                     poly.interiors]
-
+        interiors = [np.array(pi.coords).round().astype(np.int32) for poly in polygons[str(class_number)] for pi in poly.interiors]
         cv2.fillPoly(img_mask, interiors, 0)
 
         return img_mask
@@ -330,10 +321,10 @@ class Generator:
 
         # Sort polygons by Z-order
         for cls, _ in sorted(ZORDER.items(), key=lambda x: x[1]):
-            if cls-1 not in self.classes:
+            if cls - 1 not in self.classes:
                 continue
 
-            mask = arr[:, :, cls-1].astype('uint8')
+            mask = arr[:, :, cls - 1].astype('uint8')
             mask = mask * cls
 
             # Create a mask to only copy pixels which are in this class
@@ -406,13 +397,9 @@ class Generator:
                 x_start = network_size * col
                 y_start = network_size * row
 
-                x[col * splits + row] = x_train_pad[
-                                        x_start:x_start + network_size,
-                                        y_start:y_start + network_size]
+                x[col * splits + row] = x_train_pad[x_start:x_start + network_size, y_start:y_start + network_size]
                 if y_train is not None:
-                    y[col * splits + row] = y_train_pad[
-                                            x_start:x_start + network_size,
-                                            y_start:y_start + network_size]
+                    y[col * splits + row] = y_train_pad[x_start:x_start + network_size,y_start:y_start + network_size]
 
         if y is not None:
             y = np.array(y)
