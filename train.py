@@ -68,9 +68,8 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
     try:
         plot_model(model, os.path.join('images', run_name, 'model.png'))
         plot_model(model, os.path.join('images', run_name, 'model_shapes.png'), show_shapes=True)
-    except Exception as e:
-        print(e)
-        print("Skipping model plot")
+    except ImportError:
+        print("GraphViz missing. Skipping model plot")
 
     model_checkpoint = \
         ModelCheckpoint('weights/{}.hdf5'.format(run_name),
