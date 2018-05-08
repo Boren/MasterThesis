@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import Tuple, Dict, IO
+from typing import Tuple, Dict
 
 import cv2
 import numpy as np
@@ -37,7 +37,8 @@ class Generator:
     Class responsible for generating batches of data to train and test on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8), channels=3):
+    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8),
+                 channels=3):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
@@ -77,14 +78,16 @@ class Generator:
             img_width = None
             img_height = None
 
-            if not os.path.isfile(cache_path + "_x.npy") and os.path.isfile(os.path.join(self.data_path, 'three_band', '{}.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_x.npy") and os.path.isfile(
+                    os.path.join(self.data_path, 'three_band', '{}.tif'.format(image_id))):
                 print("Caching image {} - RGB".format(image_id))
                 temp_data_x = self.read_image(image_id)
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_x", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_M.npy") and os.path.isfile(os.path.join(self.data_path, 'sixteen_band', '{}_M.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_M.npy") and os.path.isfile(
+                    os.path.join(self.data_path, 'sixteen_band', '{}_M.tif'.format(image_id))):
                 print("Caching image {} - Multi band".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
@@ -97,7 +100,8 @@ class Generator:
                 temp_data_x = self.reshape(temp_data_x, (img_width, img_height))
                 np.save(cache_path + "_M", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_A.npy") and os.path.isfile(os.path.join(self.data_path, 'sixteen_band', '{}_A.tif'.format(image_id))):
+            if not os.path.isfile(cache_path + "_A.npy") and os.path.isfile(
+                    os.path.join(self.data_path, 'sixteen_band', '{}_A.tif'.format(image_id))):
                 print("Caching image {} - IR band".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
@@ -155,7 +159,8 @@ class Generator:
             y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
-                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
+                raise Exception(
+                    "Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
 
             # Crop to patch size
             start_width = np.random.randint(0, x_train_temp.shape[0] - self.patch_size)
@@ -398,7 +403,7 @@ class Generator:
 
                 x[col * splits + row] = x_train_pad[x_start:x_start + network_size, y_start:y_start + network_size]
                 if y_train is not None:
-                    y[col * splits + row] = y_train_pad[x_start:x_start + network_size,y_start:y_start + network_size]
+                    y[col * splits + row] = y_train_pad[x_start:x_start + network_size, y_start:y_start + network_size]
 
         if y is not None:
             y = np.array(y)

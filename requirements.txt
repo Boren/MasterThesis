@@ -9,6 +9,7 @@ pandas
 pydot
 requests
 seaborn
+scipy
 scikit-image
 scikit-learn
 shapely

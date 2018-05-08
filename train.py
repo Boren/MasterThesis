@@ -1,24 +1,23 @@
 import argparse
 import datetime
+import logging
 import os
 
-from termcolor import colored
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sn
 import webcolors
 from PIL import Image
 from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.utils import plot_model
 from sklearn.metrics import confusion_matrix
-
-import seaborn as sn
-import pandas as pd
-import matplotlib.pyplot as plt
+from termcolor import colored
 
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 
-import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -56,6 +55,7 @@ def train(args):
     else:
         timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
         run_name = "{}_{}_{}channel".format(model_name, timenow, args.channels)
+
     create_directories(run_name)
 
     # TODO: Update with ability to choose weights
@@ -64,6 +64,7 @@ def train(args):
         if load == "y":
             print("Loading saved weights")
             model.load_weights('weights/{}.hdf5'.format(model_name))
+
     if args.verbose:
         model.summary()
 
@@ -75,18 +76,16 @@ def train(args):
         logger.warning("GraphViz missing. Skipping model plot")
         logger.warning(e)
 
-    model_checkpoint = \
-        ModelCheckpoint('weights/{}.hdf5'.format(run_name),
-                        monitor='val_loss', save_best_only=True)
+    model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(run_name), monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
-    tensorboard_callback = \
-        TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name),
-                    histogram_freq=0, write_graph=True, write_images=False)
+    tensorboard_callback = TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name), histogram_freq=0, write_graph=True,
+                                       write_images=False)
 
     val_x, val_y = generator.next(amount=val_amount, data_type='validation')
 
     print("Starting training")
+    logger.debug("Starting training")
 
     model.fit_generator(generator.generator(), steps_per_epoch=args.batch,
                         epochs=args.epochs, verbose=1,
@@ -134,7 +133,8 @@ def test(args):
 
         for row in range(splits):
             for col in range(splits):
-                out[args.size * row:args.size * (row + 1), args.size * col:args.size * (col + 1), :] = test_y_result[row * splits + col, :, :, :]
+                out[args.size * row:args.size * (row + 1), args.size * col:args.size * (col + 1), :] = test_y_result[row * splits + col, :,
+                                                                                                       :, :]
 
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
@@ -164,7 +164,7 @@ def test(args):
             mean_iou = []
 
             for cls in range(args.classes):
-                cls = cls+1
+                cls = cls + 1
 
                 y_true_cls = np.array([1 if pix == cls else 0 for pix in y_mask_flat])
                 y_pred_cls = np.array([1 if pix == cls else 0 for pix in result_flat])
@@ -187,7 +187,8 @@ def test(args):
             cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
             cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
 
-            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())], columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
+                                 columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
             plt.figure(figsize=(10, 7))
             sn.heatmap(df_cm, annot=cnf_text, fmt="s")
             plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
@@ -243,7 +244,7 @@ def print_options(args):
     print("- Batch size: {}".format(colored(args.batch, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
 
-    classes = ' '.join([CLASS_TO_LABEL[x+1] for x in range(args.classes)])
+    classes = ' '.join([CLASS_TO_LABEL[x + 1] for x in range(args.classes)])
 
     print("- Classes: {}".format(colored(classes, 'green')))
     if args.augmentation:

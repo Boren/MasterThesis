@@ -215,11 +215,8 @@ if __name__ == "__main__":
         classes.append(CLASS_TO_LABEL[cls+1])
         colors.append(COLOR_MAPPING[int(cls+1)])
 
-    # this is for plotting purpose
     index = np.arange(10)
     plt.bar(index, totals, color=colors)
-    #plt.xlabel('Class')
     plt.ylabel('% of total')
     plt.xticks(index, classes, rotation=30)
-    #plt.title('Total Class Distribution')
     plt.show()
