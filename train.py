@@ -96,8 +96,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = 
 
     model, model_name = get_model(algorithm, input_size, num_classes, channels)
 
-    weight_files = [filename for filename in os.listdir('weights')
-                    if filename.startswith(model_name)]
+    weight_files = [filename for filename in os.listdir('weights') if filename.startswith(model_name)]
 
     if len(weight_files) > 0:
         if len(weight_files) == 1:

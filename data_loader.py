@@ -346,9 +346,9 @@ class Generator:
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 8:
-            x_path = os.path.join(cache_path, "{}_A.npy".format(image))
+            x_path = os.path.join(cache_path, "{}_M.npy".format(image))
             if os.path.isfile(x_path):
-                x_train = np.load(os.path.join(cache_path, "{}_A.npy".format(image)))
+                x_train = np.load(os.path.join(cache_path, "{}_M.npy".format(image)))
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 16:
