@@ -237,20 +237,20 @@ def print_options(args):
 
     print()
     print("Starting {} run with following options:".format(run_type))
-
     print("- Algorithm: {}".format(colored(args.algorithm, 'green')))
     print("- Patch size: {}".format(colored(args.size, 'green')))
-    print("- Epochs: {}".format(colored(args.epochs, 'green')))
-    print("- Batch size: {}".format(colored(args.batch, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
+    if not args.test:
+        print("- Epochs: {}".format(colored(args.epochs, 'green')))
+        print("- Batch size: {}".format(colored(args.batch, 'green')))
+        if args.augmentation:
+            print("- Augmentation: {}".format(colored('ON', 'green')))
+        else:
+            print("- Augmentation: {}".format(colored('OFF', 'red')))
 
     classes = '\n' + '\n'.join(["    " + CLASS_TO_LABEL[x + 1] for x in range(args.classes)])
 
     print("- Classes: {}".format(colored(classes, 'green')))
-    if args.augmentation:
-        print("- Augmentation: {}".format(colored('ON', 'green')))
-    else:
-        print("- Augmentation: {}".format(colored('OFF', 'red')))
     print()
 
 
