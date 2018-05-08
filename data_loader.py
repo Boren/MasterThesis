@@ -154,9 +154,12 @@ class Generator:
             elif self.channels == 8:
                 x_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image_id)), mmap_mode='r+')
             elif self.channels == 16:
-                x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image_id)), mmap_mode='r+')
-                x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image_id)), mmap_mode='r+')
-                x_train_temp = np.concatenate((x_train_M, x_train_A), axis=2)
+                x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image_id)), mmap_mode='r+')
+                x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image_id)), mmap_mode='r+')
+                x_train_temp = np.concatenate((x_train_multi, x_train_ir), axis=2)
+                print("Multi Shape: {}".format(x_train_multi.shape))
+                print("IR Shape: {}".format(x_train_ir.shape))
+                print("Concat Shape: {}".format(x_train_temp.shape))
             else:
                 raise Exception("Wrong number of channels")
 

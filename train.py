@@ -18,6 +18,10 @@ from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 
 def get_model(algorithm: str, input_size: int, num_classes: int, channels: int = 3):
     if algorithm == 'fcn_densenet':
@@ -69,7 +73,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
         plot_model(model, os.path.join('images', run_name, 'model.png'))
         plot_model(model, os.path.join('images', run_name, 'model_shapes.png'), show_shapes=True)
     except ImportError:
-        print("GraphViz missing. Skipping model plot")
+        logger.warn("GraphViz missing. Skipping model plot")
 
     model_checkpoint = \
         ModelCheckpoint('weights/{}.hdf5'.format(run_name),
@@ -229,6 +233,7 @@ def print_options(args):
     else:
         run_type = colored('TRAINING', 'red')
 
+    print()
     print("Starting {} run with following options:".format(run_type))
 
     print("- Algorithm: {}".format(colored(args.algorithm, 'green')))
@@ -236,6 +241,7 @@ def print_options(args):
     print("- Epochs: {}".format(colored(args.epochs, 'green')))
     print("- Batch size: {}".format(colored(args.batch, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
+    print()
 
 
 def main():
