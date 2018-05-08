@@ -53,8 +53,8 @@ class Generator:
         grid_sizes_file = os.path.join(self.data_path, 'grid_sizes.csv')
         self.grid_sizes = pd.read_csv(grid_sizes_file, index_col=0)
 
-        self.training_image_ids = self.get_image_ids('train')
-        self.validation_image_ids = self.get_image_ids('validation')
+        self.training_image_ids = [self.get_image_ids('train')[0]]
+        self.validation_image_ids = [self.get_image_ids('validation')[0]]
 
         self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.data_path, 'three_band'))]
         self.preprocess()
@@ -125,8 +125,7 @@ class Generator:
                     temp_data_y[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
 
-    def next(self, amount: int = None, data_type: str = 'train',
-             classes=range(8)):
+    def next(self, amount: int = None, data_type: str = 'train', classes=None):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -136,6 +135,9 @@ class Generator:
 
         if amount is None:
             amount = self.batch_size
+
+        if classes is None:
+            classes = self.classes
 
         # Extract a random subset of images from training pool (batch size)
         if data_type == 'train':

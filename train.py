@@ -45,15 +45,15 @@ def create_directories(run_name: str):
     os.makedirs('tensorboard_log', exist_ok=True)
 
 
-def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_classes: int = 8, verbose: bool = False, channels: int = 3, run_name: str = None):
-    val_amount = max(batch_size // 10, 1)
+def train(args):
+    val_amount = max(args.batch // 10, 1)
 
-    generator = Generator(patch_size=input_size, batch_size=batch_size, channels=channels)
+    generator = Generator(patch_size=args.size, batch_size=args.batch, channels=args.channels)
 
-    model, model_name = get_model(algorithm, input_size, num_classes, channels)
+    model, model_name = get_model(args.algorithm, args.size, args.classes, args.channels)
 
-    if run_name:
-        run_name = "{}_{}".format(model_name, run_name)
+    if args.name:
+        run_name = "{}_{}".format(model_name, args.name)
     else:
         timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
         run_name = "{}_{}".format(model_name, timenow)
@@ -65,7 +65,7 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
         if load == "y":
             print("Loading saved weights")
             model.load_weights('weights/{}.hdf5'.format(model_name))
-    if verbose:
+    if args.verbose:
         model.summary()
 
     # Some doesn't have graphviz installed. Skip if not installed.
@@ -89,16 +89,17 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
 
     print("Starting training")
 
-    model.fit_generator(generator.generator(), steps_per_epoch=batch_size,
-                        epochs=epochs, verbose=1,
+    model.fit_generator(generator.generator(), steps_per_epoch=args.batch,
+                        epochs=args.epochs, verbose=1,
                         callbacks=[model_checkpoint, tensorboard_callback],
                         validation_data=(val_x, val_y))
 
 
-def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = False, prediction_cutoff: float = 0.5, channels: int = 3):
-    generator = Generator(patch_size=input_size, channels=channels)
+def test(args):
+    prediction_cutoff = 0.5
+    generator = Generator(patch_size=args.size, channels=args.channels)
 
-    model, model_name = get_model(algorithm, input_size, num_classes, channels)
+    model, model_name = get_model(args.algorithm, args.size, args.classes, args.channels)
 
     weight_files = [filename for filename in os.listdir('weights') if filename.startswith(model_name)]
 
@@ -123,18 +124,18 @@ def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = 
 
     for test_image in test_images:
         print('Testing image {}'.format(test_image))
-        test_x, test_y, new_size, splits, w, h = generator.get_test_patches(image=test_image, network_size=input_size)
+        test_x, test_y, new_size, splits, w, h = generator.get_test_patches(image=test_image, network_size=args.size)
 
-        cutoff_array = np.full((len(test_x), input_size, input_size, 1), fill_value=prediction_cutoff)
+        cutoff_array = np.full((len(test_x), args.size, args.size, 1), fill_value=prediction_cutoff)
 
         test_y_result = model.predict(test_x, batch_size=1, verbose=1)
         test_y_result = np.append(cutoff_array, test_y_result, axis=3)
 
-        out = np.zeros((new_size, new_size, num_classes + 1))
+        out = np.zeros((new_size, new_size, args.classes + 1))
 
         for row in range(splits):
             for col in range(splits):
-                out[input_size * row:input_size * (row + 1), input_size * col:input_size * (col + 1), :] = test_y_result[row * splits + col, :, :, :]
+                out[args.size * row:args.size * (row + 1), args.size * col:args.size * (col + 1), :] = test_y_result[row * splits + col, :, :, :]
 
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
@@ -143,7 +144,7 @@ def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = 
 
         palette.extend([255, 255, 255])
 
-        for i in range(num_classes):
+        for i in range(args.classes):
             palette.extend(list(webcolors.hex_to_rgb(COLOR_MAPPING[int(i + 1)])))
 
         # for i in range(len(test_x)):
@@ -161,37 +162,37 @@ def test(algorithm: str, input_size: int, num_classes: int = 8, verbose: bool = 
             y_mask_flat = y_mask.flatten()
             result_flat = result.flatten()
 
-            #cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
-            #cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
-
-            #df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
-            #                          columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
-            #plt.figure(figsize=(10, 7))
-            #sn.heatmap(df_cm, annot=cnf_text, fmt="s")
-            #plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
-
             mean_iou = []
 
-            for cls in range(num_classes):
+            for cls in range(args.classes):
                 cls = cls+1
 
                 y_true_cls = np.array([1 if pix == cls else 0 for pix in y_mask_flat])
                 y_pred_cls = np.array([1 if pix == cls else 0 for pix in result_flat])
 
-                TP = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
-                TN = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
-                FP = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
-                FN = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
+                true_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
+                true_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
+                false_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
+                false_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
 
-                print("TP {} - FP {} - TN {} - FN {}".format(TP, FP, TN, FN))
+                print("TP {} - FP {} - TN {} - FN {}".format(true_positive, false_positive, true_negative, false_negative))
 
-                score = TP / (FP + FN + TP + 0.0001)
+                score = true_positive / (false_positive + false_negative + true_positive + 0.0001)
 
                 print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
 
                 mean_iou.append(score)
 
             print('Mean IoU: {}'.format(np.mean(mean_iou)))
+
+            cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
+            cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
+
+            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())], columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+            plt.figure(figsize=(10, 7))
+            sn.heatmap(df_cm, annot=cnf_text, fmt="s")
+            plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
+
     # Plot results
     '''
     print("Plotting results...")
@@ -242,55 +243,57 @@ def print_options(args):
     print("- Epochs: {}".format(colored(args.epochs, 'green')))
     print("- Batch size: {}".format(colored(args.batch, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
+
+    classes = ' '.join([CLASS_TO_LABEL[x+1] for x in range(args.classes)])
+
+    print("- Classes: {}".format(colored(classes, 'green')))
+    if args.augmentation:
+        print("- Augmentation: {}".format(colored('ON', 'green')))
+    else:
+        print("- Augmentation: {}".format(colored('OFF', 'red')))
     print()
 
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--algorithm",
-                        help="Which algorithm to train/test")
+    parser.add_argument('--algorithm',
+                        help='Which algorithm to train/test')
 
-    parser.add_argument("--size", default=256, type=int,
-                        help="Size of image patches to train/test on")
+    parser.add_argument('--size', default=256, type=int,
+                        help='Size of image patches to train/test on')
 
-    parser.add_argument("--epochs", default=1000, type=int,
-                        help="How many epochs to run")
+    parser.add_argument('--epochs', default=1000, type=int,
+                        help='How many epochs to run')
 
-    parser.add_argument("--batch", default=100, type=int,
-                        help="How many samples in a batch")
+    parser.add_argument('--batch', default=100, type=int,
+                        help='How many samples in a batch')
 
-    parser.add_argument("--channels", default=3, type=int,
-                        help="How many channels. [3, 8, 16]")
+    parser.add_argument('--channels', default=3, type=int,
+                        help='How many channels. [3, 8, 16]')
 
-    parser.add_argument("--test", dest='test', action='store_true',
-                        help="Run a test")
+    parser.add_argument('--test', dest='test', action='store_true',
+                        help='Run a test')
 
-    parser.add_argument("--verbose", dest='verbose', action='store_true',
-                        help="Show additional debug information")
+    parser.add_argument('--verbose', dest='verbose', action='store_true',
+                        help='Show additional debug information')
 
-    parser.add_argument("--name", default=None, type=str,
-                        help="Give the run a name")
+    parser.add_argument('--augmentation', dest='augmentation', action='store_false',
+                        help='')
 
-    parser.set_defaults(test=False, verbose=False)
+    parser.add_argument('--name', default=None, type=str,
+                        help='Give the run a name')
+
+    parser.set_defaults(test=False, verbose=False, augmentation=True)
     args = parser.parse_args()
-
-    algorithm = args.algorithm
-    input_size = args.size
-    epochs = args.epochs
-    batch_size = args.batch
-    verbose = args.verbose
-    run_name = args.name
-
-    num_classes = 8
-    channels = args.channels
+    args.classes = 8
 
     print_options(args)
 
     if args.test:
-        test(algorithm, input_size, num_classes, verbose, channels=channels)
+        test(args)
     else:
-        train(algorithm, input_size, epochs, batch_size, num_classes, verbose, channels, run_name)
+        train(args)
 
 
 if __name__ == "__main__":
