@@ -39,7 +39,6 @@ def get_model(algorithm: str, input_size: int, num_classes: int, channels: int =
 
 
 def create_directories(run_name: str):
-    os.makedirs('images', exist_ok=True)
     os.makedirs('images/{}'.format(run_name), exist_ok=True)
     os.makedirs('weights', exist_ok=True)
     os.makedirs('tensorboard_log', exist_ok=True)
