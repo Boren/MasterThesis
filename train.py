@@ -284,11 +284,12 @@ def main():
     parser.add_argument('--name', default=None, type=str,
                         help='Give the run a name')
 
-    parser.set_defaults(test=False, verbose=False, augmentation=True)
+    parser.set_defaults(test=False, verbose=True, augmentation=True)
     args = parser.parse_args()
     args.classes = 8
 
-    print_options(args)
+    if args.verbose:
+        print_options(args)
 
     if args.test:
         test(args)
