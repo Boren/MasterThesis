@@ -56,7 +56,7 @@ def train(args):
         run_name = "{}_{}".format(model_name, args.name)
     else:
         timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-        run_name = "{}_{}".format(model_name, timenow)
+        run_name = "{}_{}_{}channel".format(model_name, timenow, args.channels)
     create_directories(run_name)
 
     # TODO: Update with ability to choose weights
