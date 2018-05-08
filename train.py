@@ -67,9 +67,9 @@ def train(algorithm: str, input_size: int, epochs: int, batch_size: int, num_cla
     # Some doesn't have graphviz installed. Skip if not installed.
     try:
         plot_model(model, os.path.join('images', run_name, 'model.png'))
-        plot_model(model, os.path.join('images', run_name, 'model_shapes.png'),
-                   show_shapes=True)
-    except:
+        plot_model(model, os.path.join('images', run_name, 'model_shapes.png'), show_shapes=True)
+    except Exception as e:
+        print(e)
         print("Skipping model plot")
 
     model_checkpoint = \
