@@ -88,7 +88,7 @@ def train(args):
     logger.debug("Starting training")
 
     model.fit_generator(generator.generator(), steps_per_epoch=args.batch,
-                        epochs=args.epochs, verbose=1,
+                        epochs=args.epochs, verbose=1 if args.verbose else 2,
                         callbacks=[model_checkpoint, tensorboard_callback],
                         validation_data=(val_x, val_y))
 
@@ -244,7 +244,7 @@ def print_options(args):
     print("- Batch size: {}".format(colored(args.batch, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
 
-    classes = ' '.join([CLASS_TO_LABEL[x + 1] for x in range(args.classes)])
+    classes = '\n' + '\n'.join(["    " + CLASS_TO_LABEL[x + 1] for x in range(args.classes)])
 
     print("- Classes: {}".format(colored(classes, 'green')))
     if args.augmentation:
@@ -284,12 +284,11 @@ def main():
     parser.add_argument('--name', default=None, type=str,
                         help='Give the run a name')
 
-    parser.set_defaults(test=False, verbose=True, augmentation=True)
+    parser.set_defaults(test=False, verbose=False, augmentation=True)
     args = parser.parse_args()
     args.classes = 8
 
-    if args.verbose:
-        print_options(args)
+    print_options(args)
 
     if args.test:
         test(args)
