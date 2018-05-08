@@ -133,8 +133,7 @@ def test(args):
 
         for row in range(splits):
             for col in range(splits):
-                out[args.size * row:args.size * (row + 1), args.size * col:args.size * (col + 1), :] = test_y_result[row * splits + col, :,
-                                                                                                       :, :]
+                out[args.size * row:args.size * (row + 1), args.size * col:args.size * (col + 1), :] = test_y_result[row * splits + col, :, :, :]
 
         result = np.argmax(np.squeeze(out), axis=-1).astype(np.uint8)
         result = result[:w, :h]
@@ -257,34 +256,18 @@ def print_options(args):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--algorithm',
-                        help='Which algorithm to train/test')
-
-    parser.add_argument('--size', default=256, type=int,
-                        help='Size of image patches to train/test on')
-
-    parser.add_argument('--epochs', default=1000, type=int,
-                        help='How many epochs to run')
-
-    parser.add_argument('--batch', default=100, type=int,
-                        help='How many samples in a batch')
-
-    parser.add_argument('--channels', default=3, type=int,
-                        help='How many channels. [3, 8, 16]')
-
-    parser.add_argument('--test', dest='test', action='store_true',
-                        help='Run a test')
-
-    parser.add_argument('--verbose', dest='verbose', action='store_true',
-                        help='Show additional debug information')
-
-    parser.add_argument('--augmentation', dest='augmentation', action='store_false',
-                        help='')
-
-    parser.add_argument('--name', default=None, type=str,
-                        help='Give the run a name')
+    parser.add_argument('--algorithm', help='Which algorithm to train/test')
+    parser.add_argument('--size', default=256, type=int, help='Size of image patches to train/test on')
+    parser.add_argument('--epochs', default=1000, type=int, help='How many epochs to run')
+    parser.add_argument('--batch', default=100, type=int, help='How many samples in a batch')
+    parser.add_argument('--channels', default=3, type=int, help='How many channels. [3, 8, 16]')
+    parser.add_argument('--test', dest='test', action='store_true', help='Run a test')
+    parser.add_argument('--verbose', dest='verbose', action='store_true', help='Show additional debug information')
+    parser.add_argument('--augmentation', dest='augmentation', action='store_false', help='')
+    parser.add_argument('--name', default=None, type=str, help='Give the run a name')
 
     parser.set_defaults(test=False, verbose=False, augmentation=True)
+
     args = parser.parse_args()
     args.classes = 8
 
