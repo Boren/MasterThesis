@@ -10,6 +10,7 @@ import seaborn as sn
 import webcolors
 from PIL import Image
 from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.losses import binary_crossentropy
 from keras.utils import plot_model
 from sklearn.metrics import confusion_matrix
 from termcolor import colored
@@ -17,24 +18,34 @@ from termcolor import colored
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
+from utils.loss import jaccard_loss, dice_loss
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def get_model(algorithm: str, input_size: int, num_classes: int, channels: int = 3):
+def get_model(algorithm: str, input_size: int, num_classes: int, loss, channels: int = 3, ):
     if algorithm == 'fcn_densenet':
         model, model_name = fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes, channels=channels)
     elif algorithm == 'tiramisu':
         model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes, channels=channels)
     elif algorithm == 'unet':
-        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes, channels=channels)
+        model, model_name = unet.unet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     elif algorithm == 'pspnet':
         model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes, channels=channels)
     else:
         raise Exception('{} is an invalid algorithm'.format(algorithm))
 
     return model, model_name
+
+
+def get_loss(loss: str = 'crossentropy'):
+    if loss == 'crossentropy':
+        return binary_crossentropy
+    elif loss == 'jaccard':
+        return jaccard_loss
+    elif loss == 'dice':
+        return dice_loss
 
 
 def create_directories(run_name: str):
@@ -48,13 +59,13 @@ def train(args):
 
     generator = Generator(patch_size=args.size, batch_size=args.batch, channels=args.channels)
 
-    model, model_name = get_model(args.algorithm, args.size, args.classes, args.channels)
+    model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
 
     if args.name:
         run_name = "{}_{}".format(model_name, args.name)
     else:
         timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-        run_name = "{}_{}_{}channel".format(model_name, timenow, args.channels)
+        run_name = "{}_{}_{}channel_{}".format(model_name, timenow, args.channels, args.loss)
 
     create_directories(run_name)
 
@@ -239,6 +250,21 @@ def print_options(args):
     print("- Algorithm: {}".format(colored(args.algorithm, 'green')))
     print("- Patch size: {}".format(colored(args.size, 'green')))
     print("- Channels: {}".format(colored(args.channels, 'green')))
+
+    if args.loss == "crossentropy":
+        loss = "Crossentropy"
+    elif args.loss == "jaccard":
+        loss = "Jaccard"
+    elif args.loss == "dice":
+        loss = "Dice"
+    elif args.loss == "cejaccard":
+        loss = "Crossentropy + Jaccard"
+    elif args.loss == "cedice":
+        loss = "Crossentropy + Dice"
+    else:
+        raise Exception("Invalid loss function")
+
+    print('- Loss function: {}'.format(colored(loss, 'green')))
     if not args.test:
         print("- Epochs: {}".format(colored(args.epochs, 'green')))
         print("- Batch size: {}".format(colored(args.batch, 'green')))
@@ -256,11 +282,12 @@ def print_options(args):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--algorithm', help='Which algorithm to train/test')
+    parser.add_argument('--algorithm', help='Which algorithm to train/test', choices=['unet', 'fcn_densenet', 'tiramisu', 'pspnet'])
     parser.add_argument('--size', default=320, type=int, help='Size of image patches to train/test on')
     parser.add_argument('--epochs', default=1000, type=int, help='How many epochs to run')
     parser.add_argument('--batch', default=100, type=int, help='How many samples in a batch')
-    parser.add_argument('--channels', default=3, type=int, help='How many channels. [3, 8, 16]')
+    parser.add_argument('--channels', default=3, type=int, help='How many channels.', choices=[3, 8, 16])
+    parser.add_argument('--loss', default='crossentropy', type=str, help='Which loss function to use.', choices=['crossentropy', 'jaccard', 'dice', 'cejaccard', 'cedice'])
     parser.add_argument('--test', dest='test', action='store_true', help='Run a test')
     parser.add_argument('--verbose', dest='verbose', action='store_true', help='Show additional debug information')
     parser.add_argument('--noaugment', dest='noaugment', action='store_false', help='Disable data augmenation')
