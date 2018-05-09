@@ -8,14 +8,14 @@ from keras_contrib.losses import jaccard_distance
 from utils.metrics import dice_coefficient
 
 
-def fcndensenet(input_size: int, num_classes: int, channels: int = 3) -> \
+def fcndensenet(input_size: int, num_classes: int, loss, channels: int = 3) -> \
         Tuple[Model, str]:
     model = DenseNetFCN(input_shape=(input_size, input_size, channels),
                         classes=num_classes)
     model_name = 'fcn_densenet'
 
     model.compile(optimizer=Adam(),
-                  loss='binary_crossentropy',
+                  loss=loss,
                   metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, model_name

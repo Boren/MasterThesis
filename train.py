@@ -18,7 +18,7 @@ from termcolor import colored
 from data_loader import Generator
 from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
-from utils.loss import jaccard_loss, dice_loss
+from utils.loss import jaccard_loss, dice_loss, ce_dice_loss, ce_jaccard_loss
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 def get_model(algorithm: str, input_size: int, num_classes: int, loss, channels: int = 3, ):
     if algorithm == 'fcn_densenet':
-        model, model_name = fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes, channels=channels)
+        model, model_name = fcndensenet.fcndensenet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     elif algorithm == 'tiramisu':
-        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes, channels=channels)
+        model, model_name = tiramisu.tiramisu(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     elif algorithm == 'unet':
         model, model_name = unet.unet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     elif algorithm == 'pspnet':
-        model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes, channels=channels)
+        model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     else:
         raise Exception('{} is an invalid algorithm'.format(algorithm))
 
@@ -46,6 +46,10 @@ def get_loss(loss: str = 'crossentropy'):
         return jaccard_loss
     elif loss == 'dice':
         return dice_loss
+    elif loss == 'cejaccard':
+        return ce_jaccard_loss
+    elif loss == 'cedice':
+        return ce_dice_loss
 
 
 def create_directories(run_name: str):
