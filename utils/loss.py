@@ -1,11 +1,15 @@
-from keras import backend as keras_backend
-
-from utils.metrics import dice_coefficient
+import tensorflow as tf
 
 
-def binary_crossentropy_with_logits(ground_truth, predictions):
-    return keras_backend.mean(keras_backend.binary_crossentropy(ground_truth, predictions, from_logits=True), axis=-1)
+def dice_loss(y_true, y_pred):
+    intersection = tf.reduce_sum(tf.multiply(y_true, y_pred))
+    union = tf.reduce_sum(tf.square(y_true)) + tf.reduce_sum(tf.square(y_pred))
+    loss = 1. - 2 * intersection / (union + tf.constant(tf.keras.backend.epsilon()))
+    return loss
 
 
-def dice_coefficient_loss(y_true, y_pred):
-    return -dice_coefficient(y_true, y_pred)
+def jaccard_loss(y_true, y_pred):
+    intersection = tf.reduce_sum(tf.multiply(y_true, y_pred))
+    union = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) - intersection
+    loss = 1. - intersection / (union + tf.constant(tf.keras.backend.epsilon()))
+    return loss
