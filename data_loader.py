@@ -184,15 +184,15 @@ class Generator:
         y_train_batch = []
 
         for image_id in self.validation_image_ids:
-            x_train_temp = self.load_data(image_id, self.channels)
-            y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
+            x_train = self.load_data(image_id, self.channels)
+            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
-            if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
+            if x_train.shape[:2] != y_train.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
 
             # Crop to patch size
-            rows = x_train_temp.shape[0] // self.patch_size
-            cols = x_train_temp.shape[1] // self.patch_size
+            rows = x_train.shape[0] // self.patch_size
+            cols = x_train.shape[1] // self.patch_size
 
             for row in range(rows):
                 for col in range(cols):
@@ -202,11 +202,8 @@ class Generator:
                     start_height = self.patch_size * col
                     end_height = start_height + self.patch_size
 
-                    x_train_temp = x_train_temp[start_width:end_width, start_height:end_height]
-                    y_train_temp = y_train_temp[start_width:end_width, start_height:end_height]
-
-                    x_train_batch.append(x_train_temp)
-                    y_train_batch.append(y_train_temp)
+                    x_train_batch.append(x_train[start_width:end_width, start_height:end_height])
+                    y_train_batch.append(y_train[start_width:end_width, start_height:end_height])
 
         return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
 
