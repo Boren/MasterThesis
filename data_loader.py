@@ -128,7 +128,7 @@ class Generator:
                     temp_data_y[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
 
-    def next(self, amount: int = None, data_type: str = 'train', classes=None):
+    def next(self, amount: int = None, data_type: str = 'train', classes = None):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -158,8 +158,7 @@ class Generator:
             y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
             if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
-                raise Exception(
-                    "Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
+                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
 
             # Crop to patch size
             start_width = np.random.randint(0, x_train_temp.shape[0] - self.patch_size)
@@ -174,6 +173,40 @@ class Generator:
 
             x_train_batch.append(x_train_temp)
             y_train_batch.append(y_train_temp)
+
+        return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
+
+    def get_validation_data(self, classes = None):
+        if classes is None:
+            classes = self.classes
+
+        x_train_batch = []
+        y_train_batch = []
+
+        for image_id in self.validation_image_ids:
+            x_train_temp = self.load_data(image_id, self.channels)
+            y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
+
+            if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
+                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
+
+            # Crop to patch size
+            rows = x_train_temp.shape[0] // self.patch_size
+            cols = x_train_temp.shape[1] // self.patch_size
+
+            for row in range(rows):
+                for col in range(cols):
+                    start_width = self.patch_size * row
+                    end_width = start_width + self.patch_size
+
+                    start_height = self.patch_size * col
+                    end_height = start_height + self.patch_size
+
+                    x_train_temp = x_train_temp[start_width:end_width, start_height:end_height]
+                    y_train_temp = y_train_temp[start_width:end_width, start_height:end_height]
+
+                    x_train_batch.append(x_train_temp)
+                    y_train_batch.append(y_train_temp)
 
         return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
 

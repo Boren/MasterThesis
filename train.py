@@ -59,8 +59,6 @@ def create_directories(run_name: str):
 
 
 def train(args):
-    val_amount = max(args.batch // 10, 1)
-
     generator = Generator(patch_size=args.size, batch_size=args.batch, channels=args.channels, augment=args.augmentation)
 
     model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
@@ -97,7 +95,8 @@ def train(args):
     tensorboard_callback = TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name), histogram_freq=0, write_graph=True,
                                        write_images=False)
 
-    val_x, val_y = generator.next(amount=val_amount, data_type='validation')
+    val_x, val_y = generator.get_validation_data()
+    logger.debug('Validation data size: {}'.format(len(val_x)))
 
     print("Starting training")
     logger.debug("Starting training")
