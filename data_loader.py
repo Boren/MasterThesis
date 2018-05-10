@@ -145,8 +145,6 @@ class Generator:
         # Extract a random subset of images from training pool (batch size)
         if data_type == 'train':
             image_ids = np.random.choice(self.training_image_ids, amount, True)
-        elif data_type == 'validation':
-            image_ids = np.random.choice(self.validation_image_ids, amount, True)
         else:
             raise Exception("{} is not a valid dataset".format(data_type))
 
@@ -188,7 +186,7 @@ class Generator:
             y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
             if x_train.shape[:2] != y_train.shape[:2]:
-                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
+                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train.shape, y_train.shape))
 
             # Crop to patch size
             rows = x_train.shape[0] // self.patch_size
