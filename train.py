@@ -20,7 +20,7 @@ from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 from utils.loss import jaccard_loss, dice_loss, ce_dice_loss, ce_jaccard_loss
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -92,8 +92,7 @@ def train(args):
     model_checkpoint = ModelCheckpoint('weights/{}.hdf5'.format(run_name), monitor='val_loss', save_best_only=True)
 
     # Setup tensorboard model
-    tensorboard_callback = TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name), histogram_freq=0, write_graph=True,
-                                       write_images=False)
+    tensorboard_callback = TensorBoard(log_dir='tensorboard_log/{}/'.format(run_name), histogram_freq=0, write_graph=True, write_images=False)
 
     val_x, val_y = generator.get_validation_data()
     logger.debug('Validation data size: {}'.format(len(val_x)))

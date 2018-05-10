@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 from typing import Tuple, Dict
 
@@ -14,6 +15,7 @@ from shapely.geometry import MultiPolygon
 from utils.visualize import ZORDER
 
 csv.field_size_limit(2 ** 24)
+logger = logging.getLogger(__name__)
 
 
 def scale_image_percentile(matrix, lower_percentile=1, higher_percentile=99):
@@ -53,8 +55,8 @@ class Generator:
         grid_sizes_file = os.path.join(self.data_path, 'grid_sizes.csv')
         self.grid_sizes = pd.read_csv(grid_sizes_file, index_col=0)
 
-        self.training_image_ids = [self.get_image_ids('train')[0]]
-        self.validation_image_ids = [self.get_image_ids('validation')[0]]
+        self.training_image_ids = self.get_image_ids('train')
+        self.validation_image_ids = self.get_image_ids('validation')
 
         self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.data_path, 'three_band'))]
         self.preprocess()
@@ -68,18 +70,21 @@ class Generator:
         Performs required preprocessing to get images ready for training.
         Also caches the results for future use.
         """
+        logger.info('Preprocessing data')
+
         cache_folder = os.path.join(self.data_path, "cache")
         if not os.path.isdir(cache_folder):
             os.makedirs(cache_folder)
 
         for image_id in self.training_image_ids + self.validation_image_ids:
+            logger.info('Processing image {}'.format(image_id))
             cache_path = os.path.join(cache_folder, "{}".format(image_id))
             img_width = None
             img_height = None
 
             if not os.path.isfile(cache_path + "_x.npy") and os.path.isfile(
                     os.path.join(self.data_path, 'three_band', '{}.tif'.format(image_id))):
-                print("Caching image {} - RGB".format(image_id))
+                logger.debug("Caching image {} - RGB".format(image_id))
                 temp_data_x = self.read_image(image_id)
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
@@ -87,7 +92,7 @@ class Generator:
 
             if not os.path.isfile(cache_path + "_M.npy") and os.path.isfile(
                     os.path.join(self.data_path, 'sixteen_band', '{}_M.tif'.format(image_id))):
-                print("Caching image {} - Multi band".format(image_id))
+                logger.debug("Caching image {} - Multi band".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -101,7 +106,7 @@ class Generator:
 
             if not os.path.isfile(cache_path + "_A.npy") and os.path.isfile(
                     os.path.join(self.data_path, 'sixteen_band', '{}_A.tif'.format(image_id))):
-                print("Caching image {} - IR band".format(image_id))
+                logger.debug("Caching image {} - IR band".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -114,7 +119,7 @@ class Generator:
                 np.save(cache_path + "_A", temp_data_x)
 
             if not os.path.isfile(cache_path + "_y.npy") and image_id in self.training_image_ids + self.validation_image_ids:
-                print("Caching image {} - Ground truth".format(image_id))
+                logger.debug("Caching image {} - Ground truth".format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -145,6 +150,7 @@ class Generator:
         # Extract a random subset of images from training pool (batch size)
         if data_type == 'train':
             image_ids = np.random.choice(self.training_image_ids, amount, True)
+            logger.info('Generating batch from images: {}'.format(image_ids))
         else:
             raise Exception("{} is not a valid dataset".format(data_type))
 
@@ -152,25 +158,30 @@ class Generator:
         y_train_batch = []
 
         for image_id in image_ids:
-            x_train_temp = self.load_data(image_id, self.channels)
-            y_train_temp = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
+            x_train = self.load_data(image_id, self.channels)
+            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
 
-            if x_train_temp.shape[:2] != y_train_temp.shape[:2]:
-                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train_temp.shape, y_train_temp.shape))
+            if x_train.shape[:2] != y_train.shape[:2]:
+                raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train.shape, y_train.shape))
 
             # Crop to patch size
-            start_width = np.random.randint(0, x_train_temp.shape[0] - self.patch_size)
-            start_height = np.random.randint(0, x_train_temp.shape[1] - self.patch_size)
+            start_width = np.random.randint(0, x_train.shape[0] - self.patch_size)
+            end_width = start_width + self.patch_size
 
-            x_train_temp = x_train_temp[start_width:start_width + self.patch_size, start_height:start_height + self.patch_size]
-            y_train_temp = y_train_temp[start_width:start_width + self.patch_size, start_height:start_height + self.patch_size]
+            start_height = np.random.randint(0, x_train.shape[1] - self.patch_size)
+            end_height = start_height + self.patch_size
+
+            x_train = x_train[start_width:end_width, start_height:end_height]
+            y_train = y_train[start_width:end_width, start_height:end_height]
+
+            logger.info('Extracting patch [{}:{}, {}:{}] from image {}'.format(start_width, end_width, start_height, end_height, image_id))
 
             # Augment
             if self.augment:
-                x_train_temp, y_train_temp = self.augment_data(x_train_temp, y_train_temp)
+                x_train, y_train = self.augment_data(x_train, y_train)
 
-            x_train_batch.append(x_train_temp)
-            y_train_batch.append(y_train_temp)
+            x_train_batch.append(x_train)
+            y_train_batch.append(y_train)
 
         return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
 
@@ -194,10 +205,10 @@ class Generator:
 
             for row in range(rows):
                 for col in range(cols):
-                    start_width = self.patch_size * row
+                    start_width = self.patch_size * col
                     end_width = start_width + self.patch_size
 
-                    start_height = self.patch_size * col
+                    start_height = self.patch_size * row
                     end_height = start_height + self.patch_size
 
                     x_train_batch.append(x_train[start_width:end_width, start_height:end_height])
@@ -207,18 +218,22 @@ class Generator:
 
     @staticmethod
     def augment_data(x, y):
+        logger.info('Augmenting')
         # Rotate either 0, 90, 180 or 270 degrees
         num_rotations = np.random.randint(4)
+        logger.info('{} rotations'.format(num_rotations))
         x = np.rot90(x, num_rotations)
         y = np.rot90(y, num_rotations)
 
         # Flip horizontal
         if np.random.choice([True, False]):
+            logger.info('Flipping horizontally')
             x = np.fliplr(x)
             y = np.fliplr(y)
 
         # Flip vertical
         if np.random.choice([True, False]):
+            logger.info('Flipping vertically')
             x = np.flipud(x)
             y = np.flipud(y)
 
@@ -246,10 +261,10 @@ class Generator:
             x_train = np.concatenate((x_train_multi, x_train_ir), axis=2)
 
             if x_train_multi.shape[:2] != x_train_ir.shape[:2]:
-                print("IR and Multi shape not equal. Please delete cache and rerun.")
                 print("Multi Shape: {}".format(x_train_multi.shape))
                 print("IR Shape: {}".format(x_train_ir.shape))
                 print("Concat Shape: {}".format(x_train.shape))
+                raise Exception('IR and Multi shape not equal. Please delete cache and rerun.')
         else:
             raise Exception("Wrong number of channels")
 
