@@ -61,7 +61,7 @@ def create_directories(run_name: str):
 def train(args):
     val_amount = max(args.batch // 10, 1)
 
-    generator = Generator(patch_size=args.size, batch_size=args.batch, channels=args.channels)
+    generator = Generator(patch_size=args.size, batch_size=args.batch, channels=args.channels, augment=args.augmentation)
 
     model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
 
@@ -294,7 +294,7 @@ def main():
     parser.add_argument('--loss', default='crossentropy', type=str, help='Which loss function to use.', choices=['crossentropy', 'jaccard', 'dice', 'cejaccard', 'cedice'])
     parser.add_argument('--test', dest='test', action='store_true', help='Run a test')
     parser.add_argument('--verbose', dest='verbose', action='store_true', help='Show additional debug information')
-    parser.add_argument('--noaugment', dest='noaugment', action='store_false', help='Disable data augmenation')
+    parser.add_argument('--noaugment', dest='noaugment', action='store_true', help='Disable data augmenation')
     parser.add_argument('--name', default=None, type=str, help='Give the run a name')
 
     parser.set_defaults(test=False, verbose=False, noaugment=False)
