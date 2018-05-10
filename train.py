@@ -112,7 +112,7 @@ def test(args):
     prediction_cutoff = 0.5
     generator = Generator(patch_size=args.size, channels=args.channels)
 
-    model, model_name = get_model(args.algorithm, args.size, args.classes, args.channels)
+    model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
 
     weight_files = [filename for filename in os.listdir('weights') if filename.startswith(model_name)]
 

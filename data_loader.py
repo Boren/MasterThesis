@@ -37,8 +37,7 @@ class Generator:
     Class responsible for generating batches of data to train and test on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8),
-                 channels=3):
+    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8), channels=3):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size

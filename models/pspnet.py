@@ -16,8 +16,7 @@ from utils.metrics import dice_coefficient
 learning_rate = 1e-3
 
 
-def pspnet(input_size: int, num_classes: int, loss, channels: int = 3) -> \
-        Tuple[Model, str]:
+def pspnet(input_size: int, num_classes: int, loss, channels: int = 3) -> Tuple[Model, str]:
     """
     Pyramid Scene Parsing Network
 
@@ -39,9 +38,7 @@ def pspnet(input_size: int, num_classes: int, loss, channels: int = 3) -> \
     x = Activation('sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=x)
-    model.compile(optimizer=Adam(),
-                  loss=loss,
-                  metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
+    model.compile(optimizer=Adam(), sloss=loss, metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "PSPNet"
 
@@ -61,8 +58,7 @@ class Interp(layers.Layer):
 
     def call(self, inputs, **kwargs):
         new_height, new_width = self.new_size
-        resized = ktf.image.resize_images(inputs, [new_height, new_width],
-                                          align_corners=True)
+        resized = ktf.image.resize_images(inputs, [new_height, new_width], align_corners=True)
         return resized
 
     def compute_output_shape(self, input_shape):
@@ -84,23 +80,19 @@ def residual_conv(prev, level, pad=1, lvl=1, sub_lvl=1, modify_stride=False):
              "conv" + lvl + "_" + sub_lvl + "_1x1_increase",
              "conv" + lvl + "_" + sub_lvl + "_1x1_increase_bn"]
     if modify_stride is False:
-        prev = Conv2D(64 * level, (1, 1), strides=(1, 1), name=names[0],
-                      use_bias=False)(prev)
+        prev = Conv2D(64 * level, (1, 1), strides=(1, 1), name=names[0], use_bias=False)(prev)
     elif modify_stride is True:
-        prev = Conv2D(64 * level, (1, 1), strides=(2, 2), name=names[0],
-                      use_bias=False)(prev)
+        prev = Conv2D(64 * level, (1, 1), strides=(2, 2), name=names[0], use_bias=False)(prev)
 
     prev = batchnorm(name=names[1])(prev)
     prev = Activation('relu')(prev)
 
     prev = ZeroPadding2D(padding=(pad, pad))(prev)
-    prev = Conv2D(64 * level, (3, 3), strides=(1, 1), dilation_rate=pad,
-                  name=names[2], use_bias=False)(prev)
+    prev = Conv2D(64 * level, (3, 3), strides=(1, 1), dilation_rate=pad, name=names[2], use_bias=False)(prev)
 
     prev = batchnorm(name=names[3])(prev)
     prev = Activation('relu')(prev)
-    prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[4],
-                  use_bias=False)(prev)
+    prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[4], use_bias=False)(prev)
     prev = batchnorm(name=names[5])(prev)
     return prev
 
@@ -112,11 +104,9 @@ def short_convolution_branch(prev, level, lvl=1, sub_lvl=1, modify_stride=False)
              "conv" + lvl + "_" + sub_lvl + "_1x1_proj_bn"]
 
     if modify_stride is False:
-        prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[0],
-                      use_bias=False)(prev)
+        prev = Conv2D(256 * level, (1, 1), strides=(1, 1), name=names[0], use_bias=False)(prev)
     elif modify_stride is True:
-        prev = Conv2D(256 * level, (1, 1), strides=(2, 2), name=names[0],
-                      use_bias=False)(prev)
+        prev = Conv2D(256 * level, (1, 1), strides=(2, 2), name=names[0], use_bias=False)(prev)
 
     prev = batchnorm(name=names[1])(prev)
     return prev
@@ -128,13 +118,9 @@ def empty_branch(prev):
 
 def residual_short(prev_layer, level, pad=1, lvl=1, sub_lvl=1, modify_stride=False):
     prev_layer = Activation('relu')(prev_layer)
-    block_1 = residual_conv(prev_layer, level,
-                            pad=pad, lvl=lvl, sub_lvl=sub_lvl,
-                            modify_stride=modify_stride)
+    block_1 = residual_conv(prev_layer, level, pad=pad, lvl=lvl, sub_lvl=sub_lvl, modify_stride=modify_stride)
 
-    block_2 = short_convolution_branch(prev_layer, level,
-                                       lvl=lvl, sub_lvl=sub_lvl,
-                                       modify_stride=modify_stride)
+    block_2 = short_convolution_branch(prev_layer, level, lvl=lvl, sub_lvl=sub_lvl, modify_stride=modify_stride)
     added = Add()([block_1, block_2])
     return added
 
@@ -142,8 +128,7 @@ def residual_short(prev_layer, level, pad=1, lvl=1, sub_lvl=1, modify_stride=Fal
 def residual_empty(prev_layer, level, pad=1, lvl=1, sub_lvl=1):
     prev_layer = Activation('relu')(prev_layer)
 
-    block_1 = residual_conv(prev_layer, level, pad=pad,
-                            lvl=lvl, sub_lvl=sub_lvl)
+    block_1 = residual_conv(prev_layer, level, pad=pad, lvl=lvl, sub_lvl=sub_lvl)
     block_2 = empty_branch(prev_layer)
     added = Add()([block_1, block_2])
     return added
@@ -161,23 +146,19 @@ def resnet50(inp):
 
         # Short branch(only start of network)
 
-        cnv1 = Conv2D(64, (3, 3), strides=(2, 2), padding='same', name=names[0],
-                      use_bias=False)(inp)  # "conv1_1_3x3_s2"
+        cnv1 = Conv2D(64, (3, 3), strides=(2, 2), padding='same', name=names[0], use_bias=False)(inp)  # "conv1_1_3x3_s2"
         bn1 = batchnorm(name=names[1])(cnv1)  # "conv1_1_3x3_s2/bn"
         relu1 = Activation('relu')(bn1)  # "conv1_1_3x3_s2/relu"
 
-        cnv1 = Conv2D(64, (3, 3), strides=(1, 1), padding='same', name=names[2],
-                      use_bias=False)(relu1)  # "conv1_2_3x3"
+        cnv1 = Conv2D(64, (3, 3), strides=(1, 1), padding='same', name=names[2], use_bias=False)(relu1)  # "conv1_2_3x3"
         bn1 = batchnorm(name=names[3])(cnv1)  # "conv1_2_3x3/bn"
         relu1 = Activation('relu')(bn1)  # "conv1_2_3x3/relu"
 
-        cnv1 = Conv2D(128, (3, 3), strides=(1, 1), padding='same', name=names[4],
-                      use_bias=False)(relu1)  # "conv1_3_3x3"
+        cnv1 = Conv2D(128, (3, 3), strides=(1, 1), padding='same', name=names[4], use_bias=False)(relu1)  # "conv1_3_3x3"
         bn1 = batchnorm(name=names[5])(cnv1)  # "conv1_3_3x3/bn"
         relu1 = Activation('relu')(bn1)  # "conv1_3_3x3/relu"
 
-        res = MaxPooling2D(pool_size=(3, 3), padding='same',
-                           strides=(2, 2))(relu1)  # "pool1_3x3_s2"
+        res = MaxPooling2D(pool_size=(3, 3), padding='same', strides=(2, 2))(relu1)  # "pool1_3x3_s2"
 
         # ---Residual layers(body of network)
 
@@ -222,10 +203,7 @@ def interp_block(prev_layer, level, feature_map_shape, input_shape):
                               3: 30,
                               6: 15}
     else:
-        print("Pooling parameters for input shape ",
-              input_shape, " are not defined.")
-        exit(1)
-        return
+        raise Exception("Pooling parameters for input shape {} are not defined.".format(input_shape))
 
     names = [
         "conv5_3_pool" + str(level) + "_conv",
@@ -234,8 +212,7 @@ def interp_block(prev_layer, level, feature_map_shape, input_shape):
     kernel = (kernel_strides_map[level], kernel_strides_map[level])
     strides = (kernel_strides_map[level], kernel_strides_map[level])
     prev_layer = AveragePooling2D(kernel, strides=strides)(prev_layer)
-    prev_layer = Conv2D(512, (1, 1), strides=(1, 1), name=names[0],
-                        use_bias=False)(prev_layer)
+    prev_layer = Conv2D(512, (1, 1), strides=(1, 1), name=names[0], use_bias=False)(prev_layer)
     prev_layer = batchnorm(name=names[1])(prev_layer)
     prev_layer = Activation('relu')(prev_layer)
     # prev_layer = Lambda(Interp, arguments={
@@ -251,8 +228,7 @@ def build_pyramid_pooling_module(res, input_shape):
         # ---PSPNet concat layers with Interpolation
         feature_map_size = tuple(int(ceil(input_dim / 8.0))
                                  for input_dim in input_shape)
-        print("PSP module will interpolate to a final feature map size of %s" %
-              (feature_map_size, ))
+        print("PSP module will interpolate to a final feature map size of %s" % (feature_map_size, ))
 
         interp_block1 = interp_block(res, 1, feature_map_size, input_shape)
         interp_block2 = interp_block(res, 2, feature_map_size, input_shape)

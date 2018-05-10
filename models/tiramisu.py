@@ -12,8 +12,7 @@ from keras_contrib.losses import jaccard_distance
 from utils.metrics import dice_coefficient
 
 
-def tiramisu(input_size: int, num_classes: int, loss, channels: int = 3) -> \
-        Tuple[Model, str]:
+def tiramisu(input_size: int, num_classes: int, loss, channels: int = 3) -> Tuple[Model, str]:
     """
     The One Hundred Layers Tiramisu:
     Fully Convolutional DenseNets for Semantic Segmentation
@@ -33,8 +32,7 @@ def tiramisu(input_size: int, num_classes: int, loss, channels: int = 3) -> \
 
     inputs = Input((input_size, input_size, channels), name="Input")
 
-    stack = Conv2D(n_filters_first_conv, kernel_size=(3, 3),
-                   padding='same')(inputs)
+    stack = Conv2D(n_filters_first_conv, kernel_size=(3, 3), padding='same')(inputs)
     n_filters = n_filters_first_conv
 
     # Start downsampling
@@ -70,8 +68,7 @@ def tiramisu(input_size: int, num_classes: int, loss, channels: int = 3) -> \
     for i in range(n_pool):
         # Transition Up ( Upsampling + concatenation with the skip connection)
         n_filters_keep = growth_rate * n_layers_per_block[n_pool + i]
-        stack = transition_up(skip_connection_list[i], block_to_upsample,
-                              n_filters_keep)
+        stack = transition_up(skip_connection_list[i], block_to_upsample, n_filters_keep)
 
         # Dense Block
         block_to_upsample = []
@@ -87,17 +84,14 @@ def tiramisu(input_size: int, num_classes: int, loss, channels: int = 3) -> \
         x = Conv2D(num_classes, (1, 1), activation='sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=x)
-    model.compile(optimizer=Adam(),
-                  loss=loss,
-                  metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
+    model.compile(optimizer=Adam(), loss=loss, metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "tiramisu"
 
 
 def dense_block(x, filters, filter_size=3, dropout_p=0.2):
     x = BatchNormalization()(x)
-    x = Conv2D(filters, kernel_size=(filter_size, filter_size),
-               padding='same', activation='relu')(x)
+    x = Conv2D(filters, kernel_size=(filter_size, filter_size), padding='same', activation='relu')(x)
     x = Dropout(dropout_p)(x)
 
     return x
@@ -114,8 +108,7 @@ def transition_down(x, n_filters, dropout_p=0.2):
 def transition_up(skip_connection, block_to_upsample, n_filters_keep):
     with keras_backend.name_scope("Transition_Up"):
         x = concatenate(block_to_upsample)
-        x = Conv2DTranspose(n_filters_keep, kernel_size=(3, 3), strides=(2, 2),
-                            padding='same')(x)
+        x = Conv2DTranspose(n_filters_keep, kernel_size=(3, 3), strides=(2, 2), padding='same')(x)
         x = concatenate([x, skip_connection])
 
         return x
