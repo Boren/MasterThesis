@@ -20,8 +20,21 @@ from models import fcndensenet, unet, tiramisu, pspnet
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 from utils.loss import jaccard_loss, dice_loss, ce_dice_loss, ce_jaccard_loss
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+fh = logging.FileHandler('run.log')
+fh.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 
 def get_model(algorithm: str, input_size: int, num_classes: int, loss, channels: int = 3, ):

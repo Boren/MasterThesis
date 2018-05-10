@@ -16,6 +16,7 @@ from utils.visualize import ZORDER
 
 csv.field_size_limit(2 ** 24)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def scale_image_percentile(matrix, lower_percentile=1, higher_percentile=99):
