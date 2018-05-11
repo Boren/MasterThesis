@@ -262,7 +262,6 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-*.png
 .idea
 images/
 weights/
