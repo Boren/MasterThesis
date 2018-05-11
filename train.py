@@ -136,24 +136,27 @@ def calculate_mean_iou(y_true, y_pred, num_classes):
     mean_iou = []
 
     for cls in range(num_classes):
+        print('Calculating IoU for {}'.format(CLASS_TO_LABEL[cls]))
+
         cls = cls + 1
 
         y_true_cls = np.array([1 if pix == cls else 0 for pix in y_true])
         y_pred_cls = np.array([1 if pix == cls else 0 for pix in y_pred])
 
         true_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
-        true_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
-        false_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
-        false_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
+        print("- True Positive {}".format(true_positive))
 
-        print("True Positive {}".format(true_positive))
-        print("True Negative {}".format(true_negative))
-        print("False Positive {}".format(false_positive))
-        print("False Negative {}".format(false_negative))
+        true_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
+        print("- True Negative {}".format(true_negative))
+
+        false_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
+        print("- False Positive {}".format(false_positive))
+
+        false_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
+        print("- False Negative {}".format(false_negative))
 
         score = true_positive / (false_positive + false_negative + true_positive + 0.0001)
-
-        print('IoU {}: {}'.format(CLASS_TO_LABEL[cls], score))
+        print('- IoU: {}'.format(score))
 
         mean_iou.append(score)
 
