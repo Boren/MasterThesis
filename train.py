@@ -138,7 +138,7 @@ def calculate_mean_iou(y_true, y_pred, num_classes):
     for cls in range(num_classes):
         cls = cls + 1
 
-        print('Calculating IoU for {}'.format(CLASS_TO_LABEL[cls+1]))
+        print('Calculating IoU for {}'.format(CLASS_TO_LABEL[cls]))
 
         y_true_cls = np.array([1 if pix == cls else 0 for pix in y_true])
         y_pred_cls = np.array([1 if pix == cls else 0 for pix in y_pred])
