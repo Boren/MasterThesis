@@ -161,7 +161,7 @@ class Generator:
 
         for image_id in image_ids:
             x_train = self.load_data(image_id, self.channels)
-            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
+            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r')
 
             if x_train.shape[:2] != y_train.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train.shape, y_train.shape))
@@ -196,7 +196,7 @@ class Generator:
 
         for image_id in self.validation_image_ids:
             x_train = self.load_data(image_id, self.channels)
-            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r+')
+            y_train = np.load(os.path.join(self.data_path, "cache", "{}_y.npy".format(image_id)), mmap_mode='r')
 
             if x_train.shape[:2] != y_train.shape[:2]:
                 raise Exception("Shape of data does not match shape of ground truth. {} vs {}.".format(x_train.shape, y_train.shape))
@@ -254,12 +254,12 @@ class Generator:
 
     def load_data(self, image: str, channels: int = 3):
         if channels == 3:
-            x_train = np.load(os.path.join(self.data_path, "cache", "{}_x.npy".format(image)), mmap_mode='r+')
+            x_train = np.load(os.path.join(self.data_path, "cache", "{}_x.npy".format(image)), mmap_mode='r')
         elif channels == 8:
-            x_train = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
+            x_train = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r')
         elif channels == 16:
-            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
-            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r+')
+            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r')
+            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r')
             x_train = np.concatenate((x_train_multi, x_train_ir), axis=2)
 
             if x_train_multi.shape[:2] != x_train_ir.shape[:2]:
@@ -277,7 +277,7 @@ class Generator:
         Get a patch of size width*height starting at x, y from image
         """
         x_train = self.load_data(image, self.channels)
-        y_train = np.load(os.path.join(self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)))
+        y_train = np.load(os.path.join(self.data_path, "cache", "{image_id}_y.npy".format(image_id=image)), mmap_mode='r')
 
         x_train = x_train[x:x + width, y:y + height]
         y_train = y_train[x:x + width, y:y + height]
@@ -390,25 +390,25 @@ class Generator:
         if self.channels == 3:
             x_path = os.path.join(cache_path, "{}_x.npy".format(image))
             if os.path.isfile(x_path):
-                x_train = np.load(os.path.join(cache_path, "{}_x.npy".format(image)))
+                x_train = np.load(os.path.join(cache_path, "{}_x.npy".format(image)), mmap_mode='r')
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 8:
             x_path = os.path.join(cache_path, "{}_M.npy".format(image))
             if os.path.isfile(x_path):
-                x_train = np.load(os.path.join(cache_path, "{}_M.npy".format(image)))
+                x_train = np.load(os.path.join(cache_path, "{}_M.npy".format(image)), mmap_mode='r')
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 16:
-            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_multi.npy".format(image)), mmap_mode='r+')
-            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_ir.npy".format(image)), mmap_mode='r+')
+            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_multi.npy".format(image)), mmap_mode='r')
+            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_ir.npy".format(image)), mmap_mode='r')
             x_train = np.concatenate((x_train_multi, x_train_ir), axis=2)
         else:
             raise Exception("Invalid number of channels")
 
         y_path = os.path.join(cache_path, "{}_y.npy".format(image))
         if os.path.isfile(y_path):
-            y_train = np.load(y_path)
+            y_train = np.load(y_path, mmap_mode='r')
         else:
             y_train = None
             print("No ground truth for image {}".format(image))
