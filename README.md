@@ -1,7 +1,7 @@
 # Deep Convolutional Neural Networks for Semantic Segmentation of Multi-Band Satellite Images
 
-<img src="images/repository/6070_2_3_y.png?raw=true" width="200px">
-<img src="images/repository/6070_2_3_x.png?raw=true" width="200px">
+<img src="repository/6070_2_3_y.png?raw=true" width="200px">
+<img src="repository/6070_2_3_x.png?raw=true" width="200px">
 
 ## Preparation
 
@@ -45,5 +45,5 @@
 
 It's possible to run some visualization of the data by running `$ python visualize.py` from the _utils_ folder.
 
-<img src="images/repository/data_distribution.png?raw=true" width="300px">
+<img src="repository/data_distribution.png?raw=true" width="300px">
 
