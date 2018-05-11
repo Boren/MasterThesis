@@ -227,7 +227,7 @@ def test(args):
             y_mask_flat = y_mask.flatten()
             result_flat = result.flatten()
 
-            mean_iou = calculate_mean_iou(y_mask_flat, result_flat, len(args.classes))
+            mean_iou = calculate_mean_iou(y_mask_flat, result_flat, args.classes)
 
             print('Mean IoU: {}'.format(mean_iou))
 
