@@ -15,8 +15,22 @@ from shapely.geometry import MultiPolygon
 from utils.visualize import ZORDER
 
 csv.field_size_limit(2 ** 24)
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler('run.log')
+fh.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 
 def scale_image_percentile(matrix, lower_percentile=1, higher_percentile=99):
