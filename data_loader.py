@@ -58,6 +58,7 @@ class Generator:
 
         self.training_image_ids = self.get_image_ids('train')
         self.validation_image_ids = self.get_image_ids('validation')
+        self.test_image_ids = self.get_image_ids('test')
 
         self.all_image_ids = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.data_path, 'three_band'))]
         self.preprocess()
@@ -73,7 +74,7 @@ class Generator:
         """
         logger.info('Preprocessing data')
 
-        cache_folder = os.path.join(self.data_path, "cache")
+        cache_folder = os.path.join(self.data_path, 'cache')
         if not os.path.isdir(cache_folder):
             os.makedirs(cache_folder)
 
@@ -83,17 +84,17 @@ class Generator:
             img_width = None
             img_height = None
 
-            if not os.path.isfile(cache_path + "_x.npy") and os.path.isfile(
+            if not os.path.isfile(cache_path + '_x.npy') and os.path.isfile(
                     os.path.join(self.data_path, 'three_band', '{}.tif'.format(image_id))):
-                logger.debug("Caching image {} - RGB".format(image_id))
+                logger.debug('Caching image {} - RGB'.format(image_id))
                 temp_data_x = self.read_image(image_id)
                 img_width = temp_data_x.shape[0]
                 img_height = temp_data_x.shape[1]
                 np.save(cache_path + "_x", temp_data_x)
 
-            if not os.path.isfile(cache_path + "_M.npy") and os.path.isfile(
+            if not os.path.isfile(cache_path + '_M.npy') and os.path.isfile(
                     os.path.join(self.data_path, 'sixteen_band', '{}_M.tif'.format(image_id))):
-                logger.debug("Caching image {} - Multi band".format(image_id))
+                logger.debug('Caching image {} - Multi band'.format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -101,13 +102,13 @@ class Generator:
                     img_width = temp_image.shape[0]
                     img_height = temp_image.shape[1]
 
-                temp_data_x = self.read_image(image_id, band="M")
+                temp_data_x = self.read_image(image_id, band='M')
                 temp_data_x = self.reshape(temp_data_x, (img_width, img_height))
-                np.save(cache_path + "_M", temp_data_x)
+                np.save(cache_path + '_M', temp_data_x)
 
-            if not os.path.isfile(cache_path + "_A.npy") and os.path.isfile(
+            if not os.path.isfile(cache_path + '_A.npy') and os.path.isfile(
                     os.path.join(self.data_path, 'sixteen_band', '{}_A.tif'.format(image_id))):
-                logger.debug("Caching image {} - IR band".format(image_id))
+                logger.debug('Caching image {} - IR band'.format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -115,12 +116,12 @@ class Generator:
                     img_width = temp_image.shape[0]
                     img_height = temp_image.shape[1]
 
-                temp_data_x = self.read_image(image_id, band="A")
+                temp_data_x = self.read_image(image_id, band='A')
                 temp_data_x = self.reshape(temp_data_x, (img_width, img_height))
-                np.save(cache_path + "_A", temp_data_x)
+                np.save(cache_path + '_A', temp_data_x)
 
-            if not os.path.isfile(cache_path + "_y.npy") and image_id in self.training_image_ids + self.validation_image_ids:
-                logger.debug("Caching image {} - Ground truth".format(image_id))
+            if not os.path.isfile(cache_path + '_y.npy') and image_id in self.training_image_ids + self.validation_image_ids + self.test_image_ids:
+                logger.debug('Caching image {} - Ground truth'.format(image_id))
 
                 # In case image is not loaded we have to load to get dimensions
                 if img_width is None:
@@ -399,9 +400,9 @@ class Generator:
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 16:
-            x_train_M = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r+')
-            x_train_A = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r+')
-            x_train = np.concatenate((x_train_M, x_train_A), axis=2)
+            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_multi.npy".format(image)), mmap_mode='r+')
+            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_ir.npy".format(image)), mmap_mode='r+')
+            x_train = np.concatenate((x_train_multi, x_train_ir), axis=2)
         else:
             raise Exception("Invalid number of channels")
 

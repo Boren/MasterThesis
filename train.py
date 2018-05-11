@@ -21,7 +21,7 @@ from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 from utils.loss import jaccard_loss, dice_loss, ce_dice_loss, ce_jaccard_loss
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 fh = logging.FileHandler('run.log')
 fh.setLevel(logging.INFO)
@@ -117,12 +117,7 @@ def train(args):
                         validation_data=(val_x, val_y))
 
 
-def test(args):
-    prediction_cutoff = 0.5
-    generator = Generator(patch_size=args.size, channels=args.channels)
-
-    model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
-
+def select_weights(model_name: str):
     weight_files = [filename for filename in os.listdir('weights') if filename.startswith(model_name)]
 
     if len(weight_files) > 0:
@@ -132,20 +127,68 @@ def test(args):
             for i, weight in enumerate(weight_files):
                 print('{}:  {}'.format(i, weight))
             selected = int(input("Select a weight file: "))
-        selected_weight = weight_files[selected]
-        print("Loading saved weights from weights/{}".format(selected_weight))
-        model.load_weights('weights/{}'.format(selected_weight))
+        return weight_files[selected]
     else:
-        raise Exception("No weights")
+        raise Exception("No weights for {}".format(model_name))
 
-    create_directories(os.path.splitext(selected_weight)[0])
-    save_folder = os.path.join('images', os.path.splitext(selected_weight)[0])
 
-    test_images = ['6140_3_1', '6100_2_3', '6180_4_3']
-    # test_images = [img for img in generator.all_image_ids if img not in generator.training_image_ids]
+def calculate_mean_iou(y_true, y_pred, num_classes):
+    mean_iou = []
+
+    for cls in range(num_classes):
+        cls = cls + 1
+
+        y_true_cls = np.array([1 if pix == cls else 0 for pix in y_true])
+        y_pred_cls = np.array([1 if pix == cls else 0 for pix in y_pred])
+
+        true_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
+        true_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
+        false_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
+        false_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
+
+        print("True Positive {}".format(true_positive))
+        print("True Negative {}".format(true_negative))
+        print("False Positive {}".format(false_positive))
+        print("False Negative {}".format(false_negative))
+
+        score = true_positive / (false_positive + false_negative + true_positive + 0.0001)
+
+        print('IoU {}: {}'.format(CLASS_TO_LABEL[cls], score))
+
+        mean_iou.append(score)
+
+    return np.mean(mean_iou)
+
+
+# TODO: Fix
+def print_confusion_matrix(y_true, y_pred, num_classes):
+    cnf_matrix = confusion_matrix(y_true, y_pred)
+    cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
+
+    df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
+                         columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+    plt.figure(figsize=(10, 7))
+    sn.heatmap(df_cm, annot=cnf_text, fmt="s")
+    #plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
+
+
+def test(args):
+    prediction_cutoff = 0.5
+    generator = Generator(patch_size=args.size, channels=args.channels)
+
+    model, model_name = get_model(args.algorithm, args.size, args.classes, get_loss(args.loss), args.channels)
+
+    weight_file = select_weights(model_name)
+    logger.debug("Loading saved weights from weights/{}".format(weight_file))
+    model.load_weights('weights/{}'.format(weight_file))
+
+    create_directories(os.path.splitext(weight_file)[0])
+    save_folder = os.path.join('images', os.path.splitext(weight_file)[0])
+
+    test_images = ['6140_3_1', '6180_4_3']
 
     for test_image in test_images:
-        print('Testing image {}'.format(test_image))
+        logger.debug('Testing image {}'.format(test_image))
         test_x, test_y, new_size, splits, w, h = generator.get_test_patches(image=test_image, network_size=args.size)
 
         cutoff_array = np.full((len(test_x), args.size, args.size, 1), fill_value=prediction_cutoff)
@@ -172,7 +215,7 @@ def test(args):
         # for i in range(len(test_x)):
         result_img = Image.fromarray(result, mode='P')
         result_img.putpalette(palette)
-        result_img.save(os.path.join(save_folder, '{}_combined.png'.format(test_image)))
+        result_img.save(os.path.join(save_folder, '{}_{}.png'.format(test_image, model_name)))
 
         if test_y is not None:
             y_train = np.load(os.path.join('data/cache/{}_y.npy'.format(test_image)))
@@ -184,39 +227,14 @@ def test(args):
             y_mask_flat = y_mask.flatten()
             result_flat = result.flatten()
 
-            mean_iou = []
+            mean_iou = calculate_mean_iou(y_mask_flat, result_flat, len(args.classes))
 
-            for cls in range(args.classes):
-                cls = cls + 1
+            print('Mean IoU: {}'.format(mean_iou))
 
-                y_true_cls = np.array([1 if pix == cls else 0 for pix in y_mask_flat])
-                y_pred_cls = np.array([1 if pix == cls else 0 for pix in result_flat])
+            # print_confusion_matrix(y_mask_flat, result_flat, len(args.classes))
 
-                true_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 1))
-                true_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 0))
-                false_positive = np.sum(np.logical_and(y_pred_cls == 1, y_true_cls == 0))
-                false_negative = np.sum(np.logical_and(y_pred_cls == 0, y_true_cls == 1))
-
-                print("TP {} - FP {} - TN {} - FN {}".format(true_positive, false_positive, true_negative, false_negative))
-
-                score = true_positive / (false_positive + false_negative + true_positive + 0.0001)
-
-                print('{}: {}'.format(CLASS_TO_LABEL[cls], score))
-
-                mean_iou.append(score)
-
-            print('Mean IoU: {}'.format(np.mean(mean_iou)))
-
-            cnf_matrix = confusion_matrix(y_mask_flat, result_flat)
-            cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
-
-            df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
-                                 columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(df_cm, annot=cnf_text, fmt="s")
-            plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
-
-    # Plot results
+    # Old plotting methods.
+    # Maybe we need some of this later
     '''
     print("Plotting results...")
     for patchnum in range(test_amount):
