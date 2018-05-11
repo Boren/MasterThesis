@@ -1,5 +1,8 @@
 # Deep Convolutional Neural Networks for Semantic Segmentation of Multi-Band Satellite Images
 
+<img src="images/repository/6070_2_3_y.png?raw=true" width="200px">
+<img src="images/repository/6070_2_3_x.png?raw=true" width="200px">
+
 ## Preparation
 
 - Download 3-band and 16-band from [here](https://www.kaggle.com/c/dstl-satellite-imagery-feature-detection/data) and extract to data folders
@@ -33,7 +36,14 @@
 
 | Argument      | Description            | Options                                                  |
 | ------------- | ---------------------- | -------------------------------------------------------- |
-| `--algorithm` | Algorithm to test     | `unet`, `fcn_densenet`, `tiramisu`, `pspnet`             |
+| `--algorithm` | Algorithm to test      | `unet`, `fcn_densenet`, `tiramisu`, `pspnet`             |
 | `--size`      | Size of patches        | _int_                                                    |
 | `--channels`  | Image channels         | `3`, `8`, `16`                                           |
 | `--verbose`   | Print more information | _bool_                                                   |
+
+## Visualization
+
+It's possible to run some visualization of the data by running `$ python visualize.py` from the _utils_ folder.
+
+<img src="images/repository/data_distribution.png?raw=true" width="300px">
+
