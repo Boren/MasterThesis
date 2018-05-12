@@ -80,7 +80,7 @@ def train(args):
         run_name = "{}_{}".format(model_name, args.name)
     else:
         timenow = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-        run_name = "{}_{}_{}channel_{}".format(model_name, timenow, args.channels, args.loss)
+        run_name = "{}_{}_{}channel_{}_{}".format(model_name, timenow, args.channels, args.loss, "augment" if args.augmentation else "noaugment")
 
     create_directories(run_name)
 
