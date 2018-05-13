@@ -168,11 +168,11 @@ def print_confusion_matrix(y_true, y_pred, num_classes):
     cnf_matrix = confusion_matrix(y_true, y_pred)
     cnf_text = np.array([[x if x < 10000 else "" for x in l] for l in cnf_matrix])
 
-    df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())],
-                         columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())])
+    df_cm = pd.DataFrame(cnf_matrix, index=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())[:num_classes]],
+                         columns=[i for i in ["BG"] + list(CLASS_TO_LABEL.values())[:num_classes]])
     plt.figure(figsize=(10, 7))
     sn.heatmap(df_cm, annot=cnf_text, fmt="s")
-    #plt.savefig(os.path.join(save_folder, '{}_confusion_matrix.png'.format(test_image)))
+    plt.savefig(os.path.join('confusion_matrix.png'))
 
 
 def test(args):
@@ -234,7 +234,7 @@ def test(args):
 
             print('Mean IoU: {}'.format(mean_iou))
 
-            # print_confusion_matrix(y_mask_flat, result_flat, len(args.classes))
+            print_confusion_matrix(y_mask_flat, result_flat, args.classes)
 
     # Old plotting methods.
     # Maybe we need some of this later

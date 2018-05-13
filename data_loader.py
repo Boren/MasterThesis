@@ -397,7 +397,7 @@ class Generator:
         return img_mask
 
     def get_test_patches(self, image, network_size):
-        print('Generating patches for image {}'.format(image))
+        logger.debug('Generating patches for image {}'.format(image))
 
         cache_path = os.path.join(self.data_path, "cache")
 
@@ -425,12 +425,12 @@ class Generator:
             y_train = np.load(y_path, mmap_mode='r')
         else:
             y_train = None
-            print("No ground truth for image {}".format(image))
+            logger.warning("No ground truth for image {}".format(image))
 
         image_width = x_train.shape[0]
         image_height = x_train.shape[1]
 
-        print('Width: {} - Height: {}'.format(image_width, image_height))
+        logger.info('Width: {} - Height: {}'.format(image_width, image_height))
 
         # Integer ceil division
         splits = max(-(-image_width // network_size),
@@ -445,7 +445,7 @@ class Generator:
             y_train_pad = np.zeros((new_size, new_size, 10))
             y_train_pad[:y_train.shape[0], :y_train.shape[1], :] = y_train
 
-        print('Splits: {}'.format(splits * splits))
+        logger.info('Splits: {}'.format(splits * splits))
 
         x = np.empty((splits * splits, network_size, network_size, self.channels))
 
