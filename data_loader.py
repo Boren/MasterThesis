@@ -54,7 +54,7 @@ class Generator:
     Class responsible for generating batches of data to train and test on
     """
 
-    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(8), channels=3):
+    def __init__(self, data_path: str = "data", batch_size: int = 10, patch_size: int = 572, augment: bool = True, classes=range(7), channels=3):
         self.data_path = data_path
         self.augment = augment
         self.batch_size = batch_size
@@ -200,9 +200,10 @@ class Generator:
             y_train_batch.append(y_train)
 
         # Hacky way to merge waterway and still water
+        y_train_batch = np.array(y_train_batch)
         y_train_batch[:, :, :, 6] = np.logical_or(y_train_batch[:, :, :, 6], y_train_batch[:, :, :, 7])
 
-        return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
+        return np.array(x_train_batch), y_train_batch[:, :, :, classes]
 
     def get_validation_data(self, classes = None):
         if classes is None:
@@ -234,9 +235,10 @@ class Generator:
                     y_train_batch.append(y_train[start_width:end_width, start_height:end_height])
 
         # Hacky way to merge waterway and still water
+        y_train_batch = np.array(y_train_batch)
         y_train_batch[:, :, :, 6] = np.logical_or(y_train_batch[:, :, :, 6], y_train_batch[:, :, :, 7])
 
-        return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
+        return np.array(x_train_batch), y_train_batch[:, :, :, classes]
 
     @staticmethod
     def augment_data(x, y):
