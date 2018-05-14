@@ -149,7 +149,7 @@ class Generator:
                     temp_data_y[:, :, z] = self.get_ground_truth_array(polygons, z + 1, (img_width, img_height))
                 np.save(cache_path + "_y", temp_data_y)
 
-    def next(self, amount: int = None, data_type: str = 'train', classes = None):
+    def next(self, amount: int = None, data_type: str = 'train', classes=None):
         """
         Returns next batch of training images
         Tuple(x_train, y_train)
@@ -199,6 +199,9 @@ class Generator:
             x_train_batch.append(x_train)
             y_train_batch.append(y_train)
 
+        # Hacky way to merge waterway and still water
+        y_train_batch[:, :, :, 6] = np.logical_or(y_train_batch[:, :, :, 6], y_train_batch[:, :, :, 7])
+
         return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
 
     def get_validation_data(self, classes = None):
@@ -229,6 +232,9 @@ class Generator:
 
                     x_train_batch.append(x_train[start_width:end_width, start_height:end_height])
                     y_train_batch.append(y_train[start_width:end_width, start_height:end_height])
+
+        # Hacky way to merge waterway and still water
+        y_train_batch[:, :, :, 6] = np.logical_or(y_train_batch[:, :, :, 6], y_train_batch[:, :, :, 7])
 
         return np.array(x_train_batch), np.array(y_train_batch)[:, :, :, classes]
 
@@ -423,6 +429,8 @@ class Generator:
         y_path = os.path.join(cache_path, "{}_y.npy".format(image))
         if os.path.isfile(y_path):
             y_train = np.load(y_path, mmap_mode='r')
+            # Hacky way to merge waterway and still water
+            y_train[:, :, 6] = np.logical_or(y_train[:, :, 6], y_train[:, :, 7])
         else:
             y_train = None
             logger.warning("No ground truth for image {}".format(image))
@@ -442,7 +450,7 @@ class Generator:
         x_train_pad[:x_train.shape[0], :x_train.shape[1], :] = x_train
 
         if y_train is not None:
-            y_train_pad = np.zeros((new_size, new_size, 10))
+            y_train_pad = np.zeros((new_size, new_size, len(self.classes)))
             y_train_pad[:y_train.shape[0], :y_train.shape[1], :] = y_train
 
         logger.info('Splits: {}'.format(splits * splits))
@@ -450,7 +458,7 @@ class Generator:
         x = np.empty((splits * splits, network_size, network_size, self.channels))
 
         if y_train is not None:
-            y = np.empty((splits * splits, network_size, network_size, 10))
+            y = np.empty((splits * splits, network_size, network_size, len(self.classes)))
         else:
             y = None
 

@@ -132,7 +132,7 @@ def select_weights(model_name: str):
         raise Exception("No weights for {}".format(model_name))
 
 
-def calculate_mean_iou(y_true, y_pred, num_classes):
+def calculate_mean_iou(y_true, y_pred, num_classes) -> float:
     mean_iou = []
 
     for cls in range(num_classes):
@@ -330,7 +330,7 @@ def main():
     parser.set_defaults(test=False, verbose=False, noaugment=False)
 
     args = parser.parse_args()
-    args.classes = 8
+    args.classes = 7
     args.augmentation = not args.noaugment
 
     print_options(args)
