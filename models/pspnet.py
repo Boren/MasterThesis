@@ -38,7 +38,7 @@ def pspnet(input_size: int, num_classes: int, loss, channels: int = 3) -> Tuple[
     x = Activation('sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=x)
-    model.compile(optimizer=Adam(), sloss=loss, metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
+    model.compile(optimizer=Adam(), loss=loss, metrics=[dice_coefficient, jaccard_distance, 'accuracy'])
 
     return model, "PSPNet"
 
