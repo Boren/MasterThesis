@@ -433,6 +433,7 @@ class Generator:
             y_train = np.load(y_path, mmap_mode='r')
             # Hacky way to merge waterway and still water
             y_train[:, :, 6] = np.logical_or(y_train[:, :, 6], y_train[:, :, 7])
+            y_train = y_train[:, :, :-1]
         else:
             y_train = None
             logger.warning("No ground truth for image {}".format(image))
