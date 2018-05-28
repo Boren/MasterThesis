@@ -221,7 +221,11 @@ def test(args):
         result_img.save(os.path.join(save_folder, '{}_{}.png'.format(test_image, model_name)))
 
         if test_y is not None:
-            y_train = np.load(os.path.join('data/cache/{}_y.npy'.format(test_image)), mmap_mode='r')
+            y_train = np.load(os.path.join('data/cache/{}_y.npy'.format(test_image)))
+            y_train[:, :, 6] = np.logical_or(y_train[:, :, 6], y_train[:, :, 7])
+
+            y_train = y_train[:, :, :args.classes]
+
             y_mask = generator.flatten(y_train)
             result_img = Image.fromarray(y_mask, mode='P')
             result_img.putpalette(palette)
