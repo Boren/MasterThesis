@@ -422,8 +422,8 @@ class Generator:
             else:
                 raise Exception("No data found for image {}".format(image))
         elif self.channels == 16:
-            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_multi.npy".format(image)), mmap_mode='r')
-            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_ir.npy".format(image)), mmap_mode='r')
+            x_train_multi = np.load(os.path.join(self.data_path, "cache", "{}_M.npy".format(image)), mmap_mode='r')
+            x_train_ir = np.load(os.path.join(self.data_path, "cache", "{}_A.npy".format(image)), mmap_mode='r')
             x_train = np.concatenate((x_train_multi, x_train_ir), axis=2)
         else:
             raise Exception("Invalid number of channels")
