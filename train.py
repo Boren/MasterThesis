@@ -16,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from termcolor import colored
 
 from data_loader import Generator
-from models import fcndensenet, unet, tiramisu, pspnet
+from models import fcndensenet, unet, tiramisu, pspnet, deeplabv3plus
 from utils.visualize import COLOR_MAPPING, CLASS_TO_LABEL
 from utils.loss import jaccard_loss, dice_loss, ce_dice_loss, ce_jaccard_loss
 
@@ -46,6 +46,8 @@ def get_model(algorithm: str, input_size: int, num_classes: int, loss, channels:
         model, model_name = unet.unet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
     elif algorithm == 'pspnet':
         model, model_name = pspnet.pspnet(input_size=input_size, num_classes=num_classes, loss=loss, channels=channels)
+    elif algorithm == 'deeplabv3plus':
+        model, model_name = (deeplabv3plus.Deeplabv3(weights=None, input_shape=(input_size, input_size, channels), classes=num_classes, backbone='xception', loss=loss), "deeplabv3plus")
     else:
         raise Exception('{} is an invalid algorithm'.format(algorithm))
 
@@ -320,7 +322,7 @@ def print_options(args):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--algorithm', help='Which algorithm to train/test', choices=['unet', 'fcn_densenet', 'tiramisu', 'pspnet'])
+    parser.add_argument('--algorithm', help='Which algorithm to train/test', choices=['unet', 'fcn_densenet', 'tiramisu', 'pspnet', 'deeplabv3plus'])
     parser.add_argument('--size', default=320, type=int, help='Size of image patches to train/test on')
     parser.add_argument('--epochs', default=1000, type=int, help='How many epochs to run')
     parser.add_argument('--batch', default=100, type=int, help='How many samples in a batch')
